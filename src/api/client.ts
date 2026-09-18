@@ -16,7 +16,8 @@
 // PENTING: karena ini server PRODUCTION (data sungguhan toko, bukan data
 // percobaan), setiap transaksi yang kamu buat lewat app ini akan benar-benar
 // tersimpan sebagai transaksi asli - bukan sekadar simulasi/testing.
-const API_BASE_URL = 'https://nichmattpos.store/api/v1';
+export const API_ORIGIN = 'https://nichmattpos.store';
+const API_BASE_URL = `${API_ORIGIN}/api/v1`;
 
 // Token login (Bearer token dari Sanctum) disimpan di variabel biasa di
 // memori aplikasi. Artinya: kalau aplikasi ditutup total, token ini hilang

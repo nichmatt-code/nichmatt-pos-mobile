@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { login } from '../api/auth';
+import { login, loginWithGoogle } from '../api/auth';
 import { ApiError } from '../api/client';
 import { colors } from '../theme/colors';
 import { User } from '../types';
@@ -30,7 +30,9 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isBusy = isSubmitting || isGoogleSubmitting;
 
   // Dipakai supaya border input berubah warna jadi brand-500 saat sedang
   // diketik, meniru efek `focus:border-brand-500` di versi web.
@@ -56,6 +58,27 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setErrorMessage(null);
+    setIsGoogleSubmitting(true);
+
+    try {
+      const user = await loginWithGoogle();
+
+      // `null` artinya user sendiri yang menutup jendela browser Google -
+      // bukan error, jadi tidak perlu tampilkan pesan apa pun.
+      if (user) {
+        onLoginSuccess(user);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof ApiError ? error.message : 'Login dengan Google gagal, coba lagi.',
+      );
+    } finally {
+      setIsGoogleSubmitting(false);
     }
   }
 
@@ -96,7 +119,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
-              editable={!isSubmitting}
+              editable={!isBusy}
             />
 
             <Text style={styles.label}>Password</Text>
@@ -109,17 +132,34 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
               placeholder="••••••••"
               placeholderTextColor={colors.slate[400]}
               secureTextEntry
-              editable={!isSubmitting}
+              editable={!isBusy}
             />
 
             <TouchableOpacity
-              style={[styles.button, isSubmitting && styles.buttonDisabled]}
+              style={[styles.button, isBusy && styles.buttonDisabled]}
               onPress={handleSubmit}
-              disabled={isSubmitting}>
+              disabled={isBusy}>
               {isSubmitting ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
                 <Text style={styles.buttonText}>Masuk</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>atau</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.googleButton, isBusy && styles.buttonDisabled]}
+              onPress={handleGoogleLogin}
+              disabled={isBusy}>
+              {isGoogleSubmitting ? (
+                <ActivityIndicator color={colors.slate[700]} />
+              ) : (
+                <Text style={styles.googleButtonText}>Masuk dengan Google</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -233,6 +273,38 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.slate[200],
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.slate[400],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  googleButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  googleButtonText: {
+    color: colors.slate[700],
+    fontSize: 15,
+    fontWeight: '600',
   },
   errorBox: {
     backgroundColor: colors.rose[50],
