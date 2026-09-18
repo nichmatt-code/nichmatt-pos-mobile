@@ -35,3 +35,10 @@ export async function checkout(payload: CheckoutPayload): Promise<Transaction> {
 
   return result.data;
 }
+
+/** Ambil detail lengkap satu transaksi (item + receipt_lines) dari riwayat. */
+export async function getTransaction(id: number): Promise<Transaction> {
+  const result = await apiFetch<ApiSingle<Transaction>>(`/transactions/${id}`);
+
+  return result.data;
+}

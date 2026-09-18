@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { formatRupiah } from '../utils/currency';
 import { colors } from '../theme/colors';
 import { Product } from '../types';
@@ -34,42 +34,64 @@ export default function AddToCartModal({ product, maxQty, onClose, onConfirm }: 
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.name}>{product.name}</Text>
-          {!!product.description && <Text style={styles.description}>{product.description}</Text>}
-          <Text style={styles.price}>{formatRupiah(product.price)}</Text>
+          {product.image_url ? (
+            <Image
+              source={{ uri: product.image_url }}
+              style={styles.image}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Image
+                source={require('../assets/logo.png')}
+                style={styles.imageWatermark}
+                resizeMode="contain"
+              />
+            </View>
+          )}
 
-          <View style={styles.qtyRow}>
-            <TouchableOpacity
-              style={styles.qtyButton}
-              onPress={() => setQty(current => Math.max(1, current - 1))}>
-              <Text style={styles.qtyButtonText}>-</Text>
-            </TouchableOpacity>
-            <Text style={styles.qtyValue}>{qty}</Text>
-            <TouchableOpacity
-              style={styles.qtyButton}
-              onPress={() => setQty(current => Math.min(maxQty, current + 1))}>
-              <Text style={styles.qtyButtonText}>+</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.body}>
+            <Text style={styles.name}>{product.name}</Text>
+            {!!product.description && (
+              <Text style={styles.description}>{product.description}</Text>
+            )}
+            <Text style={styles.price}>{formatRupiah(product.price)}</Text>
 
-          <Text style={styles.label}>Catatan (opsional)</Text>
-          <TextInput
-            style={styles.input}
-            value={note}
-            onChangeText={setNote}
-            placeholder="mis. tanpa gula, pedas level 2"
-            placeholderTextColor={colors.slate[400]}
-          />
+            <View style={styles.qtyRow}>
+              <TouchableOpacity
+                style={styles.qtyButton}
+                onPress={() => setQty(current => Math.max(1, current - 1))}>
+                <Text style={styles.qtyButtonText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.qtyValue}>{qty}</Text>
+              <TouchableOpacity
+                style={styles.qtyButton}
+                onPress={() => setQty(current => Math.min(maxQty, current + 1))}>
+                <Text style={styles.qtyButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Batal</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.confirmButton]}
-              onPress={handleConfirm}>
-              <Text style={styles.confirmButtonText}>Tambahkan</Text>
-            </TouchableOpacity>
+            <Text style={styles.label}>Catatan (opsional)</Text>
+            <TextInput
+              style={styles.input}
+              value={note}
+              onChangeText={setNote}
+              placeholder="mis. tanpa gula, pedas level 2"
+              placeholderTextColor={colors.slate[400]}
+            />
+
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={onClose}>
+                <Text style={styles.cancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.confirmButton]}
+                onPress={handleConfirm}>
+                <Text style={styles.confirmButtonText}>Tambahkan</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -87,6 +109,27 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
     borderRadius: 20,
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: 160,
+    backgroundColor: colors.slate[100],
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 160,
+    backgroundColor: colors.slate[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageWatermark: {
+    width: '40%',
+    height: '40%',
+    opacity: 0.3,
+    tintColor: colors.slate[400],
+  },
+  body: {
     padding: 20,
   },
   name: {

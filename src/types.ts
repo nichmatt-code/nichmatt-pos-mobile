@@ -110,6 +110,17 @@ export interface BillPreview {
   receipt_lines: string[];
 }
 
+/** Versi ringkas transaksi buat daftar riwayat (tanpa item/receipt_lines). */
+export interface TransactionSummary {
+  id: number;
+  transaction_no: string;
+  customer_name: string | null;
+  total: number;
+  payment_method: PaymentMethod;
+  status: string;
+  created_at: string;
+}
+
 /** Struk transaksi yang dibalikin server setelah checkout berhasil. */
 export interface Transaction {
   id: number;

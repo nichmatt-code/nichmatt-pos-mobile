@@ -20,6 +20,7 @@ import { previewBill } from '../api/billPreview';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { formatRupiah } from '../utils/currency';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { colors } from '../theme/colors';
 import {
   BillPreview,
@@ -37,6 +38,7 @@ import AddToCartModal from '../components/AddToCartModal';
 import CartModal from '../components/CartModal';
 import SelfOrderQrModal from '../components/SelfOrderQrModal';
 import BillPreviewModal from '../components/BillPreviewModal';
+import TransactionHistoryModal from '../components/TransactionHistoryModal';
 import Toast, { ToastPayload } from '../components/Toast';
 
 interface Props {
@@ -71,6 +73,9 @@ export default function KasirScreen({ user, onLogout }: Props) {
 
   // --- QR self order ---------------------------------------------------
   const [isQrModalVisible, setIsQrModalVisible] = useState(false);
+
+  // --- Riwayat transaksi -------------------------------------------------
+  const [isHistoryVisible, setIsHistoryVisible] = useState(false);
 
   // --- Klaim kode self order --------------------------------------------
   const [orderCodeInput, setOrderCodeInput] = useState('');
@@ -433,9 +438,14 @@ export default function KasirScreen({ user, onLogout }: Props) {
           style={styles.navbarLogo}
           resizeMode="contain"
         />
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Keluar</Text>
-        </TouchableOpacity>
+        <View style={styles.navbarActions}>
+          <TouchableOpacity style={styles.historyButton} onPress={() => setIsHistoryVisible(true)}>
+            <Text style={styles.historyButtonText}>Riwayat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Keluar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* --- Header halaman ------------------------------------------ */}
@@ -513,25 +523,29 @@ export default function KasirScreen({ user, onLogout }: Props) {
           "cell recycling"-nya saat kategori baru selesai dimuat dari
           server. ScrollView menggambar semua chip sekaligus, jadi bug itu
           tidak pernah terjadi. */}
-      <ScrollView
-        style={styles.categoryList}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryListContent}>
-        <CategoryChip
-          label="Semua"
-          isActive={selectedCategoryId === null}
-          onPress={() => setSelectedCategoryId(null)}
-        />
-        {categories.map(item => (
+      {/* Dibungkus kartu kecil dengan tinggi TETAP, supaya tampilan di
+          sekitarnya tidak ikut naik-turun saat daftar kategori baru
+          selesai dimuat dari server atau saat kategori dipilih. */}
+      <View style={styles.categoryCard}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryListContent}>
           <CategoryChip
-            key={item.id}
-            label={item.name}
-            isActive={selectedCategoryId === item.id}
-            onPress={() => setSelectedCategoryId(item.id)}
+            label="Semua"
+            isActive={selectedCategoryId === null}
+            onPress={() => setSelectedCategoryId(null)}
           />
-        ))}
-      </ScrollView>
+          {categories.map(item => (
+            <CategoryChip
+              key={item.id}
+              label={item.name}
+              isActive={selectedCategoryId === item.id}
+              onPress={() => setSelectedCategoryId(item.id)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       {/* --- Daftar produk -------------------------------------------- */}
       {isLoadingProducts ? (
@@ -637,6 +651,11 @@ export default function KasirScreen({ user, onLogout }: Props) {
         onClose={() => setBillPreview(null)}
       />
 
+      <TransactionHistoryModal
+        visible={isHistoryVisible}
+        onClose={() => setIsHistoryVisible(false)}
+      />
+
       <Toast toast={toast} bottomOffset={cartItemCount > 0 ? 90 : 24} />
     </SafeAreaView>
   );
@@ -725,23 +744,6 @@ function maxQtyFor(product: Product, cart: CartItem[]): number {
   return Math.max(1, product.stock_qty - alreadyInCart);
 }
 
-/**
- * "Debounce" artinya: tunda dulu, jangan langsung reaksi tiap ketukan tombol.
- * Di sini, `debouncedValue` baru ikut berubah `delayMs` mili-detik SETELAH
- * user berhenti mengetik - supaya kita tidak menembak API di setiap huruf
- * yang diketik user di kolom pencarian.
- */
-function useDebouncedValue(value: string, delayMs: number): string {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => setDebouncedValue(value), delayMs);
-    return () => clearTimeout(timeoutId);
-  }, [value, delayMs]);
-
-  return debouncedValue;
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -776,6 +778,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.slate[500],
     marginTop: 2,
+  },
+  navbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyButton: {
+    backgroundColor: colors.slate[100],
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  historyButtonText: {
+    color: colors.slate[700],
+    fontWeight: '600',
+    fontSize: 13,
   },
   logoutButton: {
     backgroundColor: colors.rose[50],
@@ -886,12 +904,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.slate[900],
   },
-  categoryList: {
+  categoryCard: {
+    height: 56,
     marginTop: 12,
-    flexGrow: 0,
+    marginHorizontal: 16,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    justifyContent: 'center',
   },
   categoryListContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
+    alignItems: 'center',
   },
   categoryChip: {
     borderWidth: 1,
