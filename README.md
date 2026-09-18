@@ -1,97 +1,31 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# NichmattPOS Mobile
 
-# Getting Started
+Aplikasi kasir mobile (React Native + Expo) untuk NichmattPOS, terhubung ke API di project `NichmattPOSWeb`.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Menjalankan lewat Expo Go
 
-## Step 1: Start Metro
+1. Pastikan Laravel (`NichmattPOSWeb`) jalan dan bisa diakses dari perangkat lain di jaringan WiFi yang sama:
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+   ```bash
+   php artisan serve --host=0.0.0.0
+   ```
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+2. Cek alamat `API_BASE_URL` di [src/api/client.ts](src/api/client.ts) sudah sesuai IP laptop kamu di jaringan WiFi (cek dengan `ipconfig`, cari "IPv4 Address").
+3. Install aplikasi **Expo Go** dari Play Store/App Store di HP kamu.
+4. Di folder ini, jalankan:
 
-```sh
-# Using npm
-npm start
+   ```bash
+   npm start
+   ```
 
-# OR using Yarn
-yarn start
-```
+5. Scan QR code yang muncul di terminal pakai aplikasi Expo Go (Android: menu "Scan QR code" di dalam Expo Go; iOS: pakai Camera bawaan).
+6. HP dan laptop harus terhubung ke WiFi yang sama.
 
-## Step 2: Build and run your app
+## Struktur kode
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+Lihat `src/` - `api/` (koneksi ke Laravel), `screens/` (LoginScreen, KasirScreen), `components/`, `theme/`, `types.ts`.
 
-### Android
+## Perintah lain
 
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- `npm test` - jalankan test.
+- `npm run lint` - jalankan ESLint.

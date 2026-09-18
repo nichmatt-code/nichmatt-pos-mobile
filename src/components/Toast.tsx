@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 import { colors } from '../theme/colors';
 
@@ -25,8 +25,12 @@ interface Props {
  * sama tidak akan mengulang animasinya dari awal.
  */
 export default function Toast({ toast, bottomOffset = 24 }: Props) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(8)).current;
+  // Dibuat lewat useState (bukan useRef) supaya nilainya cuma dibuat SEKALI
+  // lewat lazy initializer, tanpa perlu membaca `.current` saat render -
+  // Animated.Value sendiri tetap object yang sama & boleh diubah langsung
+  // (lewat Animated.timing) sepanjang umur komponen ini.
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(8));
 
   useEffect(() => {
     if (!toast) {

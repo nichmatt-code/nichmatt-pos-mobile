@@ -2,7 +2,7 @@ import { apiFetch } from './client';
 import { PaymentMethod, Transaction } from '../types';
 
 export interface CheckoutPayload {
-  items: Array<{ product_id: number; qty: number }>;
+  items: { product_id: number; qty: number }[];
   payment_method: PaymentMethod;
   /** Wajib diisi kalau payment_method === 'cash', diabaikan server untuk metode lain. */
   paid_amount?: number;

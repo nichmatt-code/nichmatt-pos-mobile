@@ -8,15 +8,15 @@
 
 // --- Alamat server ---------------------------------------------------
 //
-// "10.0.2.2" adalah alamat khusus dari emulator Android untuk menunjuk ke
-// "localhost" komputer kamu (tempat `php artisan serve` / Laragon jalan).
-// Ini BUKAN bug, memang begitu cara emulator Android bekerja.
+// Karena app ini sekarang dijalankan lewat Expo Go di HP fisik (scan QR),
+// "localhost"/"10.0.2.2" tidak berlaku lagi - itu cuma trik khusus emulator
+// Android. HP kamu perlu alamat IP laptop ini di jaringan WiFi yang SAMA
+// (cek pakai `ipconfig`, cari "IPv4 Address" di adapter WiFi-mu).
 //
-// - Kalau kamu test pakai emulator Android -> biarkan seperti ini.
-// - Kalau kamu test pakai HP fisik yang disambungkan lewat USB/WiFi -> ganti
-//   "10.0.2.2" dengan alamat IP laptop kamu di jaringan yang sama,
-//   misalnya "http://192.168.1.5:8000/api/v1" (cek dengan `ipconfig`).
-const API_BASE_URL = 'http://10.0.2.2:8000/api/v1';
+// Laravel-nya juga harus di-serve supaya bisa diakses dari perangkat lain
+// di jaringan, bukan cuma dari laptop itu sendiri:
+//   php artisan serve --host=0.0.0.0
+const API_BASE_URL = 'http://192.168.100.45:8000/api/v1';
 
 // Token login (Bearer token dari Sanctum) disimpan di variabel biasa di
 // memori aplikasi. Artinya: kalau aplikasi ditutup total, token ini hilang

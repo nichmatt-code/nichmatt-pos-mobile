@@ -1,4 +1,14 @@
 {
-  "name": "NichmattPosMobile",
-  "displayName": "NichmattPosMobile"
+  "expo": {
+    "name": "NichmattPOS Kasir",
+    "slug": "nichmattpos-kasir",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {}
+  }
 }

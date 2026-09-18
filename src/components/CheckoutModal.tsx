@@ -26,7 +26,7 @@ interface Props {
   onConfirm: (paymentMethod: PaymentMethod, paidAmount?: number) => void;
 }
 
-const PAYMENT_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
+const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'cash', label: 'Tunai' },
   { value: 'qris', label: 'QRIS' },
   { value: 'kartu', label: 'Kartu' },

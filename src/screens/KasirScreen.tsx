@@ -67,6 +67,11 @@ export default function KasirScreen({ user, onLogout }: Props) {
   useEffect(() => {
     let isCancelled = false;
 
+    // Reset status loading/error di awal setiap kali efek ini jalan ulang
+    // (ganti kategori, ganti kata pencarian, dll) - pola standar untuk
+    // effect yang mengambil data, makanya baris ini sengaja dikecualikan
+    // dari aturan lint yang menganggap setState di awal effect berisiko.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingProducts(true);
     setLoadError(null);
 
@@ -115,7 +120,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
     });
 
     // `id: Date.now()` supaya toast yang sama persis (tap produk yang sama
-    // dua kali berturut-turut) tetap mengulang animasi dari awal.
+    // dua kali berturut-turut) tetap mengulang animasi dari awal. Aman
+    // dipakai di sini karena addToCart cuma dipanggil dari onPress, bukan
+    // saat render.
+    // eslint-disable-next-line react-hooks/purity
     setToast({ id: Date.now(), message: `${product.name} ditambahkan ke keranjang` });
   }
 
