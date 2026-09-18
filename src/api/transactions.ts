@@ -6,6 +6,9 @@ export interface CheckoutPayload {
   payment_method: PaymentMethod;
   /** Wajib diisi kalau payment_method === 'cash', diabaikan server untuk metode lain. */
   paid_amount?: number;
+  /** Diisi kalau kasir memilih pelanggan/member yang sudah ada dari pencarian. */
+  customer_id?: number;
+  /** Nama pelanggan bebas (dipakai kalau tidak memilih dari pencarian). */
   customer_name?: string;
   note?: string;
   /**

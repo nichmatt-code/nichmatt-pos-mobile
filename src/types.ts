@@ -72,6 +72,13 @@ export interface TransactionItem {
   subtotal: number;
 }
 
+/** Pelanggan/member - hasil pencarian nama/telepon di keranjang. */
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+}
+
 /** Hasil klaim kode self order - siap digabung ke keranjang kasir. */
 export interface SelfOrderClaim {
   self_order_id: number;
@@ -119,6 +126,50 @@ export interface TransactionSummary {
   payment_method: PaymentMethod;
   status: string;
   created_at: string;
+}
+
+/** Satu produk yang dicatat sebagai kerugian (rusak/hilang/kadaluarsa). */
+export interface LossRecordItem {
+  product_id: number;
+  product_name: string;
+  qty: number;
+  cost_price: number;
+  subtotal_cost: number;
+}
+
+export interface LossRecord {
+  id: number;
+  loss_no: string;
+  reason: string;
+  total_cost_value: number;
+  created_at: string;
+  items: LossRecordItem[];
+}
+
+export type StockOpnameType = 'product' | 'inventory';
+export type StockOpnameStatus = 'draft' | 'completed';
+
+export interface StockOpnameItem {
+  id: number;
+  product_id: number | null;
+  inventory_item_id: number | null;
+  item_name: string;
+  unit: string | null;
+  system_qty: number;
+  counted_qty: number | null;
+  difference: number | null;
+}
+
+export interface StockOpname {
+  id: number;
+  code: string;
+  type: StockOpnameType;
+  status: StockOpnameStatus;
+  note: string | null;
+  created_at: string;
+  completed_at: string | null;
+  items_count?: number;
+  items: StockOpnameItem[];
 }
 
 /** Struk transaksi yang dibalikin server setelah checkout berhasil. */

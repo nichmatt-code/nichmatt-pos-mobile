@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Image,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +17,7 @@ import { checkout } from '../api/transactions';
 import { claimSelfOrder } from '../api/selfOrders';
 import { checkCoupon } from '../api/coupons';
 import { previewBill } from '../api/billPreview';
+import { searchCustomers } from '../api/customers';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { formatRupiah } from '../utils/currency';
@@ -27,6 +28,7 @@ import {
   CartItem,
   Category,
   CouponCheckResult,
+  Customer,
   PaymentMethod,
   Product,
   SelfOrderClaim,
@@ -39,6 +41,9 @@ import CartModal from '../components/CartModal';
 import SelfOrderQrModal from '../components/SelfOrderQrModal';
 import BillPreviewModal from '../components/BillPreviewModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
+import LossRecordModal from '../components/LossRecordModal';
+import StockOpnameModal from '../components/StockOpnameModal';
+import MoreMenuModal from '../components/MoreMenuModal';
 import Toast, { ToastPayload } from '../components/Toast';
 
 interface Props {
@@ -77,6 +82,16 @@ export default function KasirScreen({ user, onLogout }: Props) {
   // --- Riwayat transaksi -------------------------------------------------
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
 
+  // --- Catat Kerugian ------------------------------------------------------
+  const [isLossRecordVisible, setIsLossRecordVisible] = useState(false);
+
+  // --- Stock Opname --------------------------------------------------------
+  const [isStockOpnameVisible, setIsStockOpnameVisible] = useState(false);
+  const canAccessStockOpname = user.role === 'owner' || user.permissions.includes('stock-opname');
+
+  // --- Menu navbar (☰) -----------------------------------------------------
+  const [isMoreMenuVisible, setIsMoreMenuVisible] = useState(false);
+
   // --- Klaim kode self order --------------------------------------------
   const [orderCodeInput, setOrderCodeInput] = useState('');
   const [isClaimingSelfOrder, setIsClaimingSelfOrder] = useState(false);
@@ -84,6 +99,16 @@ export default function KasirScreen({ user, onLogout }: Props) {
   // Diisi setelah kode berhasil diklaim - dipakai supaya checkout tahu
   // transaksi ini terkait self order yang mana.
   const [claimedSelfOrder, setClaimedSelfOrder] = useState<SelfOrderClaim | null>(null);
+
+  // --- Pelanggan/member ---------------------------------------------------
+  const [customerName, setCustomerNameState] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [customerMatches, setCustomerMatches] = useState<Customer[]>([]);
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+  const debouncedCustomerName = useDebouncedValue(customerName, 400);
+
+  // --- Catatan pesanan keseluruhan (bukan per-produk) --------------------
+  const [orderNote, setOrderNote] = useState('');
 
   // --- Kupon -------------------------------------------------------------
   const [couponCodeInput, setCouponCodeInput] = useState('');
@@ -154,6 +179,14 @@ export default function KasirScreen({ user, onLogout }: Props) {
     };
   }, [selectedCategoryId, debouncedSearch, reloadToken]);
 
+  // Kelompokkan produk berdasarkan kategorinya (meniru tampilan web, yang
+  // menampilkan produk per-kategori dengan judul di atasnya) - dihitung
+  // ulang cuma kalau daftar produk atau kategori berubah, bukan tiap render.
+  const productSections = useMemo(
+    () => groupProductsByCategory(products, categories),
+    [products, categories],
+  );
+
   const cartTotal = useMemo(
     () => cart.reduce((sum, line) => sum + line.price * line.qty, 0),
     [cart],
@@ -220,6 +253,61 @@ export default function KasirScreen({ user, onLogout }: Props) {
     setCart(current =>
       current.map(line => (line.product.id === productId ? { ...line, note } : line)),
     );
+  }
+
+  // Cari pelanggan/member setiap kali nama yang diketik berubah (setelah
+  // di-debounce) - tapi TIDAK kalau sudah ada pelanggan yang dipilih dari
+  // daftar hasil pencarian (supaya dropdown tidak muncul lagi begitu
+  // namanya sudah diisi otomatis dari hasil pilihan).
+  useEffect(() => {
+    if (selectedCustomerId || debouncedCustomerName.trim() === '') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCustomerMatches([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsSearchingCustomer(true);
+
+    searchCustomers(debouncedCustomerName.trim())
+      .then(results => {
+        if (!isCancelled) {
+          setCustomerMatches(results);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCustomerMatches([]);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsSearchingCustomer(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedCustomerName, selectedCustomerId]);
+
+  function handleCustomerNameChange(text: string) {
+    setCustomerNameState(text);
+    // Ketik lagi setelah sebelumnya memilih dari daftar berarti user mau
+    // ganti - lepas dulu pilihan lamanya supaya pencarian aktif lagi.
+    setSelectedCustomerId(null);
+  }
+
+  function handleSelectCustomer(customerItem: Customer) {
+    setSelectedCustomerId(customerItem.id);
+    setCustomerNameState(customerItem.name);
+    setCustomerMatches([]);
+  }
+
+  function handleClearCustomer() {
+    setSelectedCustomerId(null);
+    setCustomerNameState('');
+    setCustomerMatches([]);
   }
 
   /** Item keranjang dalam bentuk yang dipakai bersama oleh preview bill & checkout. */
@@ -296,6 +384,15 @@ export default function KasirScreen({ user, onLogout }: Props) {
       setClaimedSelfOrder(claim);
       setOrderCodeInput('');
 
+      // Isi otomatis nama pelanggan & catatan dari self order, kalau ada -
+      // kasir masih bisa mengubahnya manual sesudahnya kalau perlu.
+      if (claim.customer_name) {
+        setCustomerNameState(claim.customer_name);
+      }
+      if (claim.note) {
+        setOrderNote(claim.note);
+      }
+
       if (claim.skipped.length > 0) {
         Alert.alert(
           'Sebagian menu dilewati',
@@ -342,6 +439,8 @@ export default function KasirScreen({ user, onLogout }: Props) {
       const preview = await previewBill({
         items: cartItemsPayload(),
         coupon_code: appliedCoupon?.code,
+        customer_name: customerName.trim() || undefined,
+        note: orderNote.trim() || undefined,
       });
       setBillPreview(preview);
     } catch (error) {
@@ -366,6 +465,8 @@ export default function KasirScreen({ user, onLogout }: Props) {
       const preview = await previewBill({
         items: cartItemsPayload(),
         coupon_code: appliedCoupon?.code,
+        customer_name: customerName.trim() || undefined,
+        note: orderNote.trim() || undefined,
       });
       setCheckoutTotal(preview.total);
       setIsCartModalVisible(false);
@@ -388,8 +489,9 @@ export default function KasirScreen({ user, onLogout }: Props) {
         items: cartItemsPayload(),
         payment_method: paymentMethod,
         paid_amount: paidAmount,
-        customer_name: claimedSelfOrder?.customer_name ?? undefined,
-        note: claimedSelfOrder?.note ?? undefined,
+        customer_id: selectedCustomerId ?? undefined,
+        customer_name: customerName.trim() || undefined,
+        note: orderNote.trim() || undefined,
         coupon_code: appliedCoupon?.code,
         self_order_id: claimedSelfOrder?.self_order_id,
       });
@@ -397,6 +499,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
       setCart([]);
       setAppliedCoupon(null);
       setClaimedSelfOrder(null);
+      setSelectedCustomerId(null);
+      setCustomerNameState('');
+      setCustomerMatches([]);
+      setOrderNote('');
       // Modal tetap terbuka (isCheckoutVisible tidak diubah), tapi karena
       // completedTransaction sekarang terisi, isinya otomatis berganti
       // jadi layar "Transaksi Berhasil".
@@ -439,8 +545,8 @@ export default function KasirScreen({ user, onLogout }: Props) {
           resizeMode="contain"
         />
         <View style={styles.navbarActions}>
-          <TouchableOpacity style={styles.historyButton} onPress={() => setIsHistoryVisible(true)}>
-            <Text style={styles.historyButtonText}>Riwayat</Text>
+          <TouchableOpacity style={styles.menuButton} onPress={() => setIsMoreMenuVisible(true)}>
+            <Text style={styles.menuButtonText}>☰ Menu</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Keluar</Text>
@@ -560,19 +666,29 @@ export default function KasirScreen({ user, onLogout }: Props) {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={products}
-          keyExtractor={item => String(item.id)}
-          numColumns={2}
+        <SectionList
+          sections={productSections}
+          keyExtractor={(row, index) => `row-${index}-${row[0]?.id ?? 'empty'}`}
           contentContainerStyle={styles.productListContent}
-          columnWrapperStyle={styles.productRow}
+          stickySectionHeadersEnabled={false}
           ListEmptyComponent={
             <View style={styles.centerBox}>
               <Text style={styles.emptyText}>Produk tidak ditemukan.</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <ProductCard product={item} onPress={() => setProductBeingAdded(item)} />
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionHeader}>{section.title}</Text>
+          )}
+          renderItem={({ item: row }) => (
+            <View style={styles.productRow}>
+              {row.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onPress={() => setProductBeingAdded(product)}
+                />
+              ))}
+            </View>
           )}
         />
       )}
@@ -600,6 +716,15 @@ export default function KasirScreen({ user, onLogout }: Props) {
         onNoteChange={updateCartLineNote}
         claimedSelfOrder={claimedSelfOrder}
         onRemoveSelfOrder={() => setClaimedSelfOrder(null)}
+        customerName={customerName}
+        onCustomerNameChange={handleCustomerNameChange}
+        selectedCustomerId={selectedCustomerId}
+        customerMatches={customerMatches}
+        isSearchingCustomer={isSearchingCustomer}
+        onSelectCustomer={handleSelectCustomer}
+        onClearCustomer={handleClearCustomer}
+        orderNote={orderNote}
+        onOrderNoteChange={setOrderNote}
         appliedCoupon={appliedCoupon}
         couponCodeInput={couponCodeInput}
         onCouponCodeInputChange={text => setCouponCodeInput(text.toUpperCase())}
@@ -654,6 +779,28 @@ export default function KasirScreen({ user, onLogout }: Props) {
       <TransactionHistoryModal
         visible={isHistoryVisible}
         onClose={() => setIsHistoryVisible(false)}
+      />
+
+      <LossRecordModal
+        visible={isLossRecordVisible}
+        onClose={() => setIsLossRecordVisible(false)}
+      />
+
+      <StockOpnameModal
+        visible={isStockOpnameVisible}
+        onClose={() => setIsStockOpnameVisible(false)}
+      />
+
+      <MoreMenuModal
+        visible={isMoreMenuVisible}
+        onClose={() => setIsMoreMenuVisible(false)}
+        items={[
+          { label: 'Riwayat Transaksi', onPress: () => setIsHistoryVisible(true) },
+          { label: 'Catat Kerugian', onPress: () => setIsLossRecordVisible(true) },
+          ...(canAccessStockOpname
+            ? [{ label: 'Stock Opname', onPress: () => setIsStockOpnameVisible(true) }]
+            : []),
+        ]}
       />
 
       <Toast toast={toast} bottomOffset={cartItemCount > 0 ? 90 : 24} />
@@ -730,6 +877,64 @@ function CategoryChip({
   );
 }
 
+interface ProductSection {
+  title: string;
+  data: Product[][];
+}
+
+/**
+ * Susun produk jadi baris-baris berisi 2 item (buat grid 2 kolom di dalam
+ * SectionList - SectionList sendiri tidak punya `numColumns` seperti
+ * FlatList, jadi triknya: tiap "item" di section sebenarnya adalah satu
+ * BARIS berisi sampai 2 produk).
+ */
+function chunkIntoPairs(items: Product[]): Product[][] {
+  const rows: Product[][] = [];
+
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+
+  return rows;
+}
+
+/**
+ * Kelompokkan produk per kategori, dengan urutan kategori mengikuti
+ * urutan dari server, dan produk tanpa kategori dikumpulkan di bagian
+ * paling akhir - meniru pengelompokan yang sama di kasir versi web.
+ */
+function groupProductsByCategory(products: Product[], categories: Category[]): ProductSection[] {
+  const buckets = new Map<number, Product[]>();
+  const uncategorized: Product[] = [];
+
+  for (const product of products) {
+    if (product.category_id === null) {
+      uncategorized.push(product);
+      continue;
+    }
+
+    const bucket = buckets.get(product.category_id) ?? [];
+    bucket.push(product);
+    buckets.set(product.category_id, bucket);
+  }
+
+  const sections: ProductSection[] = [];
+
+  for (const category of categories) {
+    const items = buckets.get(category.id);
+
+    if (items && items.length > 0) {
+      sections.push({ title: category.name, data: chunkIntoPairs(items) });
+    }
+  }
+
+  if (uncategorized.length > 0) {
+    sections.push({ title: 'Tanpa Kategori', data: chunkIntoPairs(uncategorized) });
+  }
+
+  return sections;
+}
+
 /**
  * Berapa banyak lagi produk ini boleh ditambahkan, dengan memperhitungkan
  * qty yang sudah ada di keranjang (bukan cuma stok mentah dari server).
@@ -783,14 +988,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  historyButton: {
+  menuButton: {
     backgroundColor: colors.slate[100],
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
   },
-  historyButtonText: {
+  menuButtonText: {
     color: colors.slate[700],
     fontWeight: '600',
     fontSize: 13,
@@ -967,7 +1172,17 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.slate[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: 4,
+    marginBottom: 8,
+  },
   productRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
   },
   productCard: {

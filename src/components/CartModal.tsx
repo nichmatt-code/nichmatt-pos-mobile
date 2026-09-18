@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { formatRupiah } from '../utils/currency';
-import { CartItem, CouponCheckResult, SelfOrderClaim } from '../types';
+import { CartItem, Customer, CouponCheckResult, SelfOrderClaim } from '../types';
 
 interface Props {
   visible: boolean;
@@ -25,6 +25,15 @@ interface Props {
   onNoteChange: (productId: number, text: string) => void;
   claimedSelfOrder: SelfOrderClaim | null;
   onRemoveSelfOrder: () => void;
+  customerName: string;
+  onCustomerNameChange: (text: string) => void;
+  selectedCustomerId: number | null;
+  customerMatches: Customer[];
+  isSearchingCustomer: boolean;
+  onSelectCustomer: (customer: Customer) => void;
+  onClearCustomer: () => void;
+  orderNote: string;
+  onOrderNoteChange: (text: string) => void;
   appliedCoupon: CouponCheckResult | null;
   couponCodeInput: string;
   onCouponCodeInputChange: (text: string) => void;
@@ -57,6 +66,15 @@ export default function CartModal({
   onNoteChange,
   claimedSelfOrder,
   onRemoveSelfOrder,
+  customerName,
+  onCustomerNameChange,
+  selectedCustomerId,
+  customerMatches,
+  isSearchingCustomer,
+  onSelectCustomer,
+  onClearCustomer,
+  orderNote,
+  onOrderNoteChange,
   appliedCoupon,
   couponCodeInput,
   onCouponCodeInputChange,
@@ -91,6 +109,57 @@ export default function CartModal({
             </TouchableOpacity>
           </View>
         )}
+
+        <View style={styles.customerBox}>
+          <Text style={styles.fieldLabel}>Pelanggan (opsional)</Text>
+          {selectedCustomerId ? (
+            <View style={styles.customerSelectedRow}>
+              <Text style={styles.customerSelectedText}>{customerName}</Text>
+              <TouchableOpacity onPress={onClearCustomer}>
+                <Text style={styles.removeText}>Ganti</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View>
+              <TextInput
+                style={styles.textField}
+                value={customerName}
+                onChangeText={onCustomerNameChange}
+                placeholder="Cari member atau ketik nama baru"
+                placeholderTextColor={colors.slate[400]}
+              />
+              {isSearchingCustomer && (
+                <ActivityIndicator
+                  style={styles.customerSearchSpinner}
+                  size="small"
+                  color={colors.brand[600]}
+                />
+              )}
+              {customerMatches.length > 0 && (
+                <View style={styles.customerMatchesBox}>
+                  {customerMatches.map(match => (
+                    <TouchableOpacity
+                      key={match.id}
+                      style={styles.customerMatchRow}
+                      onPress={() => onSelectCustomer(match)}>
+                      <Text style={styles.customerMatchName}>{match.name}</Text>
+                      <Text style={styles.customerMatchPhone}>{match.phone}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          <Text style={[styles.fieldLabel, styles.orderNoteLabel]}>Catatan Pesanan (opsional)</Text>
+          <TextInput
+            style={styles.textField}
+            value={orderNote}
+            onChangeText={onOrderNoteChange}
+            placeholder="mis. dibungkus terpisah"
+            placeholderTextColor={colors.slate[400]}
+          />
+        </View>
 
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {cart.length === 0 ? (
@@ -275,6 +344,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.rose[600],
+  },
+  customerBox: {
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.slate[600],
+    marginBottom: 6,
+  },
+  orderNoteLabel: {
+    marginTop: 12,
+  },
+  textField: {
+    backgroundColor: colors.slate[50],
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: colors.slate[900],
+  },
+  customerSearchSpinner: {
+    position: 'absolute',
+    right: 12,
+    top: 10,
+  },
+  customerSelectedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.brand[50],
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  customerSelectedText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.brand[700],
+  },
+  customerMatchesBox: {
+    marginTop: 4,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  customerMatchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate[100],
+  },
+  customerMatchName: {
+    fontSize: 13,
+    color: colors.slate[900],
+  },
+  customerMatchPhone: {
+    fontSize: 12,
+    color: colors.slate[400],
   },
   list: {
     flex: 1,

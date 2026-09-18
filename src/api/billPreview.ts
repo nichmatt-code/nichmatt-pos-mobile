@@ -5,6 +5,8 @@ export interface BillPreviewPayload {
   items: { product_id: number; qty: number; note?: string; price?: number }[];
   discount?: number;
   coupon_code?: string;
+  customer_name?: string;
+  note?: string;
 }
 
 interface ApiSingle<T> {
