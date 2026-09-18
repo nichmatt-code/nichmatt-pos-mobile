@@ -13,12 +13,28 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCategories, getProducts } from '../api/catalog';
 import { checkout } from '../api/transactions';
+import { claimSelfOrder } from '../api/selfOrders';
+import { checkCoupon } from '../api/coupons';
+import { previewBill } from '../api/billPreview';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { formatRupiah } from '../utils/currency';
 import { colors } from '../theme/colors';
-import { CartItem, Category, PaymentMethod, Product, Transaction, User } from '../types';
+import {
+  BillPreview,
+  CartItem,
+  Category,
+  CouponCheckResult,
+  PaymentMethod,
+  Product,
+  SelfOrderClaim,
+  Transaction,
+  User,
+} from '../types';
 import CheckoutModal from '../components/CheckoutModal';
+import AddToCartModal from '../components/AddToCartModal';
+import SelfOrderQrModal from '../components/SelfOrderQrModal';
+import BillPreviewModal from '../components/BillPreviewModal';
 import Toast, { ToastPayload } from '../components/Toast';
 
 interface Props {
@@ -46,6 +62,36 @@ export default function KasirScreen({ user, onLogout }: Props) {
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   // Notifikasi kecil "X ditambahkan ke keranjang" di pojok bawah layar.
   const [toast, setToast] = useState<ToastPayload | null>(null);
+  // Produk yang baru saja disentuh - selama ada isinya, popup konfirmasi
+  // qty & catatan muncul sebelum benar-benar masuk ke keranjang.
+  const [productBeingAdded, setProductBeingAdded] = useState<Product | null>(null);
+
+  // --- QR self order ---------------------------------------------------
+  const [isQrModalVisible, setIsQrModalVisible] = useState(false);
+
+  // --- Klaim kode self order --------------------------------------------
+  const [orderCodeInput, setOrderCodeInput] = useState('');
+  const [isClaimingSelfOrder, setIsClaimingSelfOrder] = useState(false);
+  const [selfOrderError, setSelfOrderError] = useState<string | null>(null);
+  // Diisi setelah kode berhasil diklaim - dipakai supaya checkout tahu
+  // transaksi ini terkait self order yang mana.
+  const [claimedSelfOrder, setClaimedSelfOrder] = useState<SelfOrderClaim | null>(null);
+
+  // --- Kupon -------------------------------------------------------------
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponCheckResult | null>(null);
+
+  // --- Cetak Bill (pratinjau, belum dibayar) -----------------------------
+  const [billPreview, setBillPreview] = useState<BillPreview | null>(null);
+  const [isLoadingBillPreview, setIsLoadingBillPreview] = useState(false);
+
+  // Dipakai sesaat sebelum modal pembayaran dibuka, supaya "kembalian"
+  // dihitung dari total yang BENAR (sudah termasuk diskon kupon, pajak,
+  // dan service charge) - bukan cuma jumlah harga produk mentah.
+  const [checkoutTotal, setCheckoutTotal] = useState<number | null>(null);
+  const [isPreparingCheckout, setIsPreparingCheckout] = useState(false);
 
   // Ambil daftar kategori sekali saja saat layar ini pertama kali muncul.
   // Array kosong `[]` di akhir useEffect artinya "jalankan cuma sekali".
@@ -105,26 +151,38 @@ export default function KasirScreen({ user, onLogout }: Props) {
     [cart],
   );
   const cartItemCount = useMemo(() => cart.reduce((sum, line) => sum + line.qty, 0), [cart]);
+  // Perkiraan di layar SAJA (belum termasuk pajak/service charge kalau
+  // toko punya itu) - total yang BENAR untuk pembayaran selalu dihitung
+  // ulang dari server tepat sebelum modal pembayaran dibuka.
+  const estimatedTotal = Math.max(0, cartTotal - (appliedCoupon?.discount_amount ?? 0));
 
-  function addToCart(product: Product) {
+  function addToCart(product: Product, qty: number, note: string) {
     setCart(current => {
       const existing = current.find(line => line.product.id === product.id);
 
       if (existing) {
+        // Produk yang sama ditambah lagi: qty digabung, catatan terbaru
+        // yang dipakai (menimpa catatan lama) supaya tetap satu baris per
+        // produk di keranjang, bukan baris duplikat.
         return current.map(line =>
-          line.product.id === product.id ? { ...line, qty: line.qty + 1 } : line,
+          line.product.id === product.id ? { ...line, qty: line.qty + qty, note } : line,
         );
       }
 
-      return [...current, { product, qty: 1 }];
+      return [...current, { product, qty, note }];
     });
 
     // `id: Date.now()` supaya toast yang sama persis (tap produk yang sama
-    // dua kali berturut-turut) tetap mengulang animasi dari awal. Aman
-    // dipakai di sini karena addToCart cuma dipanggil dari onPress, bukan
-    // saat render.
-    // eslint-disable-next-line react-hooks/purity
+    // dua kali berturut-turut) tetap mengulang animasi dari awal.
     setToast({ id: Date.now(), message: `${product.name} ditambahkan ke keranjang` });
+  }
+
+  function handleConfirmAddToCart(qty: number, note: string) {
+    if (productBeingAdded) {
+      addToCart(productBeingAdded, qty, note);
+    }
+
+    setProductBeingAdded(null);
   }
 
   function changeQty(productId: number, delta: number) {
@@ -136,17 +194,178 @@ export default function KasirScreen({ user, onLogout }: Props) {
     );
   }
 
+  /** Item keranjang dalam bentuk yang dipakai bersama oleh preview bill & checkout. */
+  function cartItemsPayload() {
+    return cart.map(line => ({
+      product_id: line.product.id,
+      qty: line.qty,
+      note: line.note || undefined,
+    }));
+  }
+
+  async function handleClaimSelfOrder() {
+    const code = orderCodeInput.trim();
+
+    if (!code) {
+      return;
+    }
+
+    setSelfOrderError(null);
+    setIsClaimingSelfOrder(true);
+
+    try {
+      const claim = await claimSelfOrder(code);
+
+      // Gabungkan item dari self order ke keranjang yang sedang berjalan -
+      // pakai logika yang sama seperti nambah produk manual (qty digabung
+      // kalau produknya sudah ada), tapi tanpa memicu toast satu-satu per
+      // item supaya tidak spam notifikasi.
+      setCart(current => {
+        let next = current;
+
+        for (const item of claim.items) {
+          const existing = next.find(line => line.product.id === item.product_id);
+
+          if (existing) {
+            next = next.map(line =>
+              line.product.id === item.product_id
+                ? { ...line, qty: line.qty + item.qty, note: item.note || line.note }
+                : line,
+            );
+          } else {
+            next = [
+              ...next,
+              {
+                // Self order cuma kasih id/nama/harga/qty produk, bukan
+                // objek Product lengkap - field lain diisi placeholder
+                // aman karena tidak dipakai lagi setelah di keranjang.
+                product: {
+                  id: item.product_id,
+                  category_id: null,
+                  name: item.name,
+                  description: null,
+                  sku: null,
+                  barcode: null,
+                  price: item.price,
+                  stock_qty: item.qty,
+                  unit: null,
+                  image_url: null,
+                  is_unlimited_stock: true,
+                  is_available: true,
+                },
+                qty: item.qty,
+                note: item.note,
+              },
+            ];
+          }
+        }
+
+        return next;
+      });
+
+      setClaimedSelfOrder(claim);
+      setOrderCodeInput('');
+
+      if (claim.skipped.length > 0) {
+        Alert.alert(
+          'Sebagian menu dilewati',
+          `Menu berikut sudah tidak tersedia: ${claim.skipped.join(', ')}`,
+        );
+      }
+    } catch (error) {
+      setSelfOrderError(error instanceof ApiError ? error.message : 'Gagal mengambil kode.');
+    } finally {
+      setIsClaimingSelfOrder(false);
+    }
+  }
+
+  async function handleApplyCoupon() {
+    const code = couponCodeInput.trim();
+
+    if (!code || cartTotal <= 0) {
+      return;
+    }
+
+    setCouponError(null);
+    setIsCheckingCoupon(true);
+
+    try {
+      const result = await checkCoupon(code, cartTotal);
+      setAppliedCoupon(result);
+      setCouponCodeInput('');
+    } catch (error) {
+      setCouponError(error instanceof ApiError ? error.message : 'Kupon tidak valid.');
+    } finally {
+      setIsCheckingCoupon(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponError(null);
+  }
+
+  async function handleShowBillPreview() {
+    setIsLoadingBillPreview(true);
+
+    try {
+      const preview = await previewBill({
+        items: cartItemsPayload(),
+        coupon_code: appliedCoupon?.code,
+      });
+      setBillPreview(preview);
+    } catch (error) {
+      Alert.alert(
+        'Gagal memuat bill',
+        error instanceof ApiError ? error.message : 'Coba lagi sebentar.',
+      );
+    } finally {
+      setIsLoadingBillPreview(false);
+    }
+  }
+
+  /**
+   * Dipanggil saat tombol "Bayar" ditekan - menghitung total yang BENAR
+   * (termasuk diskon kupon/pajak/service charge) dari server dulu,
+   * sebelum modal pembayaran (dengan hitungan kembalian) dibuka.
+   */
+  async function handleOpenCheckout() {
+    setIsPreparingCheckout(true);
+
+    try {
+      const preview = await previewBill({
+        items: cartItemsPayload(),
+        coupon_code: appliedCoupon?.code,
+      });
+      setCheckoutTotal(preview.total);
+      setIsCheckoutVisible(true);
+    } catch (error) {
+      Alert.alert(
+        'Tidak bisa lanjut bayar',
+        error instanceof ApiError ? error.message : 'Coba lagi sebentar.',
+      );
+    } finally {
+      setIsPreparingCheckout(false);
+    }
+  }
+
   async function handleConfirmPayment(paymentMethod: PaymentMethod, paidAmount?: number) {
     setIsSubmittingCheckout(true);
 
     try {
       const transaction = await checkout({
-        items: cart.map(line => ({ product_id: line.product.id, qty: line.qty })),
+        items: cartItemsPayload(),
         payment_method: paymentMethod,
         paid_amount: paidAmount,
+        customer_name: claimedSelfOrder?.customer_name ?? undefined,
+        note: claimedSelfOrder?.note ?? undefined,
+        coupon_code: appliedCoupon?.code,
+        self_order_id: claimedSelfOrder?.self_order_id,
       });
 
       setCart([]);
+      setAppliedCoupon(null);
+      setClaimedSelfOrder(null);
       // Modal tetap terbuka (isCheckoutVisible tidak diubah), tapi karena
       // completedTransaction sekarang terisi, isinya otomatis berganti
       // jadi layar "Transaksi Berhasil".
@@ -162,6 +381,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
   function handleCloseCheckout() {
     setIsCheckoutVisible(false);
     setCompletedTransaction(null);
+    setCheckoutTotal(null);
   }
 
   async function handleLogout() {
@@ -180,29 +400,83 @@ export default function KasirScreen({ user, onLogout }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* --- Header ------------------------------------------------ */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Kasir</Text>
-          <Text style={styles.subtitle}>
-            {user.store.name} · {user.name}
-          </Text>
-        </View>
+      {/* --- Navbar (identitas brand, meniru bar atas di versi web) ---- */}
+      <View style={styles.navbar}>
+        <Image
+          source={require('../assets/logo.png')}
+          style={styles.navbarLogo}
+          resizeMode="contain"
+        />
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Keluar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* --- Pencarian ---------------------------------------------- */}
-      <View style={styles.searchWrapper}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={styles.searchInput}
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Cari produk..."
-          placeholderTextColor={colors.slate[400]}
-        />
+      {/* --- Header halaman ------------------------------------------ */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Kasir</Text>
+        <Text style={styles.subtitle}>
+          {user.store.name} · {user.name}
+        </Text>
+      </View>
+
+      {/* --- Pencarian + QR self order -------------------------------- */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Cari produk..."
+            placeholderTextColor={colors.slate[400]}
+          />
+        </View>
+        <TouchableOpacity
+          style={styles.qrButton}
+          onPress={() => setIsQrModalVisible(true)}
+          accessibilityLabel="Tampilkan QR self order">
+          <Text style={styles.qrButtonIcon}>▦</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* --- Klaim kode self order ------------------------------------- */}
+      <View style={styles.selfOrderBox}>
+        {claimedSelfOrder ? (
+          <View style={styles.selfOrderAppliedRow}>
+            <Text style={styles.selfOrderAppliedText}>
+              Dari Self Order: {claimedSelfOrder.code}
+              {claimedSelfOrder.customer_name ? ` · ${claimedSelfOrder.customer_name}` : ''}
+            </Text>
+            <TouchableOpacity onPress={() => setClaimedSelfOrder(null)}>
+              <Text style={styles.selfOrderRemoveText}>Lepas</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.inlineInputRow}>
+            <TextInput
+              style={styles.inlineInput}
+              value={orderCodeInput}
+              onChangeText={text => setOrderCodeInput(text.toUpperCase())}
+              placeholder="Kode self order (mis. A3F9K2)"
+              placeholderTextColor={colors.slate[400]}
+              autoCapitalize="characters"
+              maxLength={6}
+              editable={!isClaimingSelfOrder}
+            />
+            <TouchableOpacity
+              style={styles.inlineButton}
+              onPress={handleClaimSelfOrder}
+              disabled={isClaimingSelfOrder}>
+              {isClaimingSelfOrder ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <Text style={styles.inlineButtonText}>Ambil</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+        {!!selfOrderError && <Text style={styles.inlineErrorText}>{selfOrderError}</Text>}
       </View>
 
       {/* --- Filter kategori (horizontal scroll) --------------------- */}
@@ -211,6 +485,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
         data={categories}
         horizontal
         showsHorizontalScrollIndicator={false}
+        // Tanpa ini, chip kategori kadang tampil pudar/kosong di Android
+        // sebelum disentuh - Android suka "membersihkan" (clip) view yang
+        // dianggap di luar layar terlalu awal untuk FlatList horizontal.
+        removeClippedSubviews={false}
         keyExtractor={item => String(item.id)}
         contentContainerStyle={styles.categoryListContent}
         ListHeaderComponent={
@@ -253,7 +531,9 @@ export default function KasirScreen({ user, onLogout }: Props) {
               <Text style={styles.emptyText}>Produk tidak ditemukan.</Text>
             </View>
           }
-          renderItem={({ item }) => <ProductCard product={item} onPress={() => addToCart(item)} />}
+          renderItem={({ item }) => (
+            <ProductCard product={item} onPress={() => setProductBeingAdded(item)} />
+          )}
         />
       )}
 
@@ -272,25 +552,99 @@ export default function KasirScreen({ user, onLogout }: Props) {
             ))}
           </View>
 
+          {/* --- Kupon ------------------------------------------------- */}
+          {appliedCoupon ? (
+            <View style={styles.couponAppliedRow}>
+              <Text style={styles.couponAppliedText}>
+                Kupon {appliedCoupon.code}: -{formatRupiah(appliedCoupon.discount_amount)}
+              </Text>
+              <TouchableOpacity onPress={handleRemoveCoupon}>
+                <Text style={styles.selfOrderRemoveText}>Hapus</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.inlineInputRow}>
+              <TextInput
+                style={styles.inlineInput}
+                value={couponCodeInput}
+                onChangeText={text => setCouponCodeInput(text.toUpperCase())}
+                placeholder="Kode kupon (opsional)"
+                placeholderTextColor={colors.slate[400]}
+                autoCapitalize="characters"
+                editable={!isCheckingCoupon}
+              />
+              <TouchableOpacity
+                style={styles.inlineButton}
+                onPress={handleApplyCoupon}
+                disabled={isCheckingCoupon}>
+                {isCheckingCoupon ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <Text style={styles.inlineButtonText}>Terapkan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+          {!!couponError && <Text style={styles.inlineErrorText}>{couponError}</Text>}
+
+          <TouchableOpacity style={styles.billButton} onPress={handleShowBillPreview}>
+            <Text style={styles.billButtonText}>Cetak Bill</Text>
+          </TouchableOpacity>
+
           <View style={styles.cartFooter}>
             <View>
               <Text style={styles.cartItemCount}>{cartItemCount} item</Text>
-              <Text style={styles.cartTotal}>{formatRupiah(cartTotal)}</Text>
+              <Text style={styles.cartTotal}>{formatRupiah(estimatedTotal)}</Text>
             </View>
-            <TouchableOpacity style={styles.payButton} onPress={() => setIsCheckoutVisible(true)}>
-              <Text style={styles.payButtonText}>Bayar</Text>
+            <TouchableOpacity
+              style={[styles.payButton, isPreparingCheckout && styles.buttonDisabled]}
+              onPress={handleOpenCheckout}
+              disabled={isPreparingCheckout}>
+              {isPreparingCheckout ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <Text style={styles.payButtonText}>Bayar</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
       )}
 
+      <AddToCartModal
+        // `key` dibuat dari id produk supaya React membuat ulang komponen
+        // ini dari nol setiap kali produk yang disentuh beda - itu artinya
+        // state qty/catatan di dalamnya otomatis mulai lagi dari awal,
+        // tanpa perlu useEffect buat "mereset" secara manual.
+        key={productBeingAdded?.id ?? 'none'}
+        product={productBeingAdded}
+        maxQty={
+          productBeingAdded
+            ? maxQtyFor(productBeingAdded, cart)
+            : Number.POSITIVE_INFINITY
+        }
+        onClose={() => setProductBeingAdded(null)}
+        onConfirm={handleConfirmAddToCart}
+      />
+
       <CheckoutModal
         visible={isCheckoutVisible}
-        total={cartTotal}
+        total={checkoutTotal ?? estimatedTotal}
         isSubmitting={isSubmittingCheckout}
         completedTransaction={completedTransaction}
         onClose={handleCloseCheckout}
         onConfirm={handleConfirmPayment}
+      />
+
+      <SelfOrderQrModal
+        visible={isQrModalVisible}
+        url={user.store.self_order_url}
+        onClose={() => setIsQrModalVisible(false)}
+      />
+
+      <BillPreviewModal
+        bill={billPreview}
+        isLoading={isLoadingBillPreview}
+        onClose={() => setBillPreview(null)}
       />
 
       <Toast toast={toast} bottomOffset={cartItemCount > 0 ? 210 : 24} />
@@ -353,9 +707,16 @@ function CartRow({
 }) {
   return (
     <View style={styles.cartRow}>
-      <Text style={styles.cartRowName} numberOfLines={1}>
-        {line.product.name}
-      </Text>
+      <View style={styles.cartRowNameColumn}>
+        <Text style={styles.cartRowName} numberOfLines={1}>
+          {line.product.name}
+        </Text>
+        {!!line.note && (
+          <Text style={styles.cartRowNote} numberOfLines={1}>
+            {line.note}
+          </Text>
+        )}
+      </View>
       <View style={styles.qtyControls}>
         <TouchableOpacity style={styles.qtyButton} onPress={onDecrease}>
           <Text style={styles.qtyButtonText}>-</Text>
@@ -397,6 +758,20 @@ function CategoryChip({
 }
 
 /**
+ * Berapa banyak lagi produk ini boleh ditambahkan, dengan memperhitungkan
+ * qty yang sudah ada di keranjang (bukan cuma stok mentah dari server).
+ */
+function maxQtyFor(product: Product, cart: CartItem[]): number {
+  if (product.is_unlimited_stock) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const alreadyInCart = cart.find(line => line.product.id === product.id)?.qty ?? 0;
+
+  return Math.max(1, product.stock_qty - alreadyInCart);
+}
+
+/**
  * "Debounce" artinya: tunda dulu, jangan langsung reaksi tiap ketukan tombol.
  * Di sini, `debouncedValue` baru ikut berubah `delayMs` mili-detik SETELAH
  * user berhenti mengetik - supaya kita tidak menembak API di setiap huruf
@@ -418,12 +793,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.slate[50],
   },
-  header: {
+  navbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate[200],
+  },
+  navbarLogo: {
+    width: 110,
+    height: 32,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 22,
@@ -447,9 +834,86 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
-  searchWrapper: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 16,
+  },
+  searchWrapper: {
+    flex: 1,
     justifyContent: 'center',
+  },
+  qrButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    marginLeft: 8,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrButtonIcon: {
+    fontSize: 18,
+    color: colors.slate[600],
+  },
+  selfOrderBox: {
+    marginHorizontal: 16,
+    marginTop: 10,
+  },
+  selfOrderAppliedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.brand[50],
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  selfOrderAppliedText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.brand[700],
+    marginRight: 8,
+  },
+  selfOrderRemoveText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.rose[600],
+  },
+  inlineInputRow: {
+    flexDirection: 'row',
+  },
+  inlineInput: {
+    flex: 1,
+    backgroundColor: colors.slate[50],
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: colors.slate[900],
+    marginRight: 8,
+  },
+  inlineButton: {
+    backgroundColor: colors.brand[600],
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineButtonText: {
+    color: colors.white,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  inlineErrorText: {
+    color: colors.rose[600],
+    fontSize: 11,
+    marginTop: 4,
   },
   searchIcon: {
     position: 'absolute',
@@ -613,10 +1077,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[100],
   },
-  cartRowName: {
+  cartRowNameColumn: {
     flex: 1,
+  },
+  cartRowName: {
     fontSize: 13,
     color: colors.slate[900],
+  },
+  cartRowNote: {
+    fontSize: 11,
+    color: colors.slate[400],
+    fontStyle: 'italic',
+    marginTop: 1,
   },
   qtyControls: {
     flexDirection: 'row',
@@ -648,6 +1120,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.slate[900],
+  },
+  couponAppliedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.emerald[50],
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  couponAppliedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.emerald[600],
+  },
+  billButton: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  billButtonText: {
+    color: colors.slate[700],
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   cartFooter: {
     flexDirection: 'row',

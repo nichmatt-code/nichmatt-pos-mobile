@@ -12,6 +12,7 @@ export interface Store {
   id: number;
   name: string;
   has_access: boolean;
+  self_order_url: string;
 }
 
 export interface User {
@@ -47,6 +48,7 @@ export interface Product {
 export interface CartItem {
   product: Product;
   qty: number;
+  note: string;
 }
 
 export type PaymentMethod = 'cash' | 'qris' | 'kartu';
@@ -59,6 +61,44 @@ export interface TransactionItem {
   qty: number;
   note: string | null;
   subtotal: number;
+}
+
+/** Hasil klaim kode self order - siap digabung ke keranjang kasir. */
+export interface SelfOrderClaim {
+  self_order_id: number;
+  code: string;
+  customer_name: string | null;
+  note: string | null;
+  items: {
+    product_id: number;
+    name: string;
+    price: number;
+    qty: number;
+    note: string;
+  }[];
+  /** Nama menu yang dilewati karena sudah tidak tersedia (mis. stok habis). */
+  skipped: string[];
+}
+
+/** Hasil cek kupon - dipakai buat pratinjau, nilai aslinya dihitung ulang di server saat checkout. */
+export interface CouponCheckResult {
+  code: string;
+  name: string;
+  discount_amount: number;
+  has_gift: boolean;
+  gift_product_name: string | null;
+  gift_qty: number | null;
+}
+
+/** Pratinjau bill sebelum pembayaran benar-benar dikonfirmasi. */
+export interface BillPreview {
+  subtotal: number;
+  discount: number;
+  coupon_discount_amount: number;
+  service_charge_amount: number;
+  tax_amount: number;
+  total: number;
+  receipt_lines: string[];
 }
 
 /** Struk transaksi yang dibalikin server setelah checkout berhasil. */

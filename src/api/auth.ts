@@ -72,7 +72,9 @@ export async function loginWithGoogle(): Promise<User | null> {
   const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 
   if (result.type !== 'success' || !result.url) {
-    // 'cancel' / 'dismiss' - user menutup browser sendiri.
+    // 'cancel' / 'dismiss' - user menutup browser sendiri (atau, di iOS
+    // lewat Expo Go, iOS menolak sesi ASWebAuthenticationSession-nya -
+    // lihat catatan di komentar fungsi ini).
     return null;
   }
 
