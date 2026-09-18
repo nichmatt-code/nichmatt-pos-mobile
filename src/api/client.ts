@@ -8,15 +8,15 @@
 
 // --- Alamat server ---------------------------------------------------
 //
-// Karena app ini sekarang dijalankan lewat Expo Go di HP fisik (scan QR),
-// "localhost"/"10.0.2.2" tidak berlaku lagi - itu cuma trik khusus emulator
-// Android. HP kamu perlu alamat IP laptop ini di jaringan WiFi yang SAMA
-// (cek pakai `ipconfig`, cari "IPv4 Address" di adapter WiFi-mu).
+// Menunjuk langsung ke NichmattPOSWeb yang sudah di-deploy production di
+// nichmattpos.store. Karena ini domain asli (bukan localhost/IP lokal),
+// app ini bisa dites dari HP mana saja/jaringan apa saja, tidak harus
+// satu WiFi dengan laptop lagi.
 //
-// Laravel-nya juga harus di-serve supaya bisa diakses dari perangkat lain
-// di jaringan, bukan cuma dari laptop itu sendiri:
-//   php artisan serve --host=0.0.0.0
-const API_BASE_URL = 'http://192.168.100.45:8000/api/v1';
+// PENTING: karena ini server PRODUCTION (data sungguhan toko, bukan data
+// percobaan), setiap transaksi yang kamu buat lewat app ini akan benar-benar
+// tersimpan sebagai transaksi asli - bukan sekadar simulasi/testing.
+const API_BASE_URL = 'https://nichmattpos.store/api/v1';
 
 // Token login (Bearer token dari Sanctum) disimpan di variabel biasa di
 // memori aplikasi. Artinya: kalau aplikasi ditutup total, token ini hilang

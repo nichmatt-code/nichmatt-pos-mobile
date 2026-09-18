@@ -2,24 +2,20 @@
 
 Aplikasi kasir mobile (React Native + Expo) untuk NichmattPOS, terhubung ke API di project `NichmattPOSWeb`.
 
+App ini terhubung langsung ke NichmattPOSWeb yang sudah live di **<https://nichmattpos.store>** (lihat `API_BASE_URL` di [src/api/client.ts](src/api/client.ts)) - artinya semua transaksi lewat app ini adalah transaksi **production sungguhan**, bukan simulasi, dan HP tidak perlu satu WiFi dengan laptop.
+
 ## Menjalankan lewat Expo Go
 
-1. Pastikan Laravel (`NichmattPOSWeb`) jalan dan bisa diakses dari perangkat lain di jaringan WiFi yang sama:
-
-   ```bash
-   php artisan serve --host=0.0.0.0
-   ```
-
-2. Cek alamat `API_BASE_URL` di [src/api/client.ts](src/api/client.ts) sudah sesuai IP laptop kamu di jaringan WiFi (cek dengan `ipconfig`, cari "IPv4 Address").
-3. Install aplikasi **Expo Go** dari Play Store/App Store di HP kamu.
-4. Di folder ini, jalankan:
+1. Install aplikasi **Expo Go** dari Play Store/App Store di HP kamu.
+2. Di folder ini, jalankan:
 
    ```bash
    npm start
    ```
 
-5. Scan QR code yang muncul di terminal pakai aplikasi Expo Go (Android: menu "Scan QR code" di dalam Expo Go; iOS: pakai Camera bawaan).
-6. HP dan laptop harus terhubung ke WiFi yang sama.
+3. Scan QR code yang muncul di terminal pakai aplikasi Expo Go (Android: menu "Scan QR code" di dalam Expo Go; iOS: pakai Camera bawaan).
+
+Kalau suatu saat mau testing ke server LOKAL (bukan production) lagi, ganti `API_BASE_URL` ke IP laptop kamu di jaringan WiFi (cek `ipconfig`) dan jalankan Laravel dengan `php artisan serve --host=0.0.0.0` - HP dan laptop harus di WiFi yang sama untuk mode ini.
 
 ## Struktur kode
 
