@@ -2,7 +2,7 @@ import { apiFetch } from './client';
 import { BillPreview } from '../types';
 
 export interface BillPreviewPayload {
-  items: { product_id: number; qty: number; note?: string }[];
+  items: { product_id: number; qty: number; note?: string; price?: number }[];
   discount?: number;
   coupon_code?: string;
 }

@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -147,7 +148,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
   }, [selectedCategoryId, debouncedSearch, reloadToken]);
 
   const cartTotal = useMemo(
-    () => cart.reduce((sum, line) => sum + line.product.price * line.qty, 0),
+    () => cart.reduce((sum, line) => sum + line.price * line.qty, 0),
     [cart],
   );
   const cartItemCount = useMemo(() => cart.reduce((sum, line) => sum + line.qty, 0), [cart]);
@@ -163,13 +164,14 @@ export default function KasirScreen({ user, onLogout }: Props) {
       if (existing) {
         // Produk yang sama ditambah lagi: qty digabung, catatan terbaru
         // yang dipakai (menimpa catatan lama) supaya tetap satu baris per
-        // produk di keranjang, bukan baris duplikat.
+        // produk di keranjang, bukan baris duplikat. Harga yang sudah
+        // diedit manual (kalau ada) TETAP dipakai, tidak ikut ketimpa.
         return current.map(line =>
           line.product.id === product.id ? { ...line, qty: line.qty + qty, note } : line,
         );
       }
 
-      return [...current, { product, qty, note }];
+      return [...current, { product, qty, note, price: product.price }];
     });
 
     // `id: Date.now()` supaya toast yang sama persis (tap produk yang sama
@@ -194,12 +196,32 @@ export default function KasirScreen({ user, onLogout }: Props) {
     );
   }
 
+  /**
+   * Ubah harga satu baris keranjang secara manual - cuma dipanggil kalau
+   * `user.store.allow_price_edit` true (lihat CartRow). Nilai negatif/aneh
+   * dari input diabaikan (dianggap 0) supaya subtotal tidak pernah rusak.
+   */
+  function updateCartLinePrice(productId: number, priceText: string) {
+    const price = Math.max(0, Number(priceText.replace(/[^0-9]/g, '')) || 0);
+
+    setCart(current =>
+      current.map(line => (line.product.id === productId ? { ...line, price } : line)),
+    );
+  }
+
+  function updateCartLineNote(productId: number, note: string) {
+    setCart(current =>
+      current.map(line => (line.product.id === productId ? { ...line, note } : line)),
+    );
+  }
+
   /** Item keranjang dalam bentuk yang dipakai bersama oleh preview bill & checkout. */
   function cartItemsPayload() {
     return cart.map(line => ({
       product_id: line.product.id,
       qty: line.qty,
       note: line.note || undefined,
+      price: line.price,
     }));
   }
 
@@ -255,6 +277,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
                 },
                 qty: item.qty,
                 note: item.note,
+                price: item.price,
               },
             ];
           }
@@ -480,32 +503,32 @@ export default function KasirScreen({ user, onLogout }: Props) {
       </View>
 
       {/* --- Filter kategori (horizontal scroll) --------------------- */}
-      <FlatList
+      {/* Sengaja pakai ScrollView biasa, BUKAN FlatList: daftar kategori
+          selalu pendek (tidak butuh virtualisasi), dan FlatList horizontal
+          untuk daftar sependek ini justru sering bikin chip-nya tampil
+          pudar/kosong di Android sampai disentuh - bug pada mekanisme
+          "cell recycling"-nya saat kategori baru selesai dimuat dari
+          server. ScrollView menggambar semua chip sekaligus, jadi bug itu
+          tidak pernah terjadi. */}
+      <ScrollView
         style={styles.categoryList}
-        data={categories}
         horizontal
         showsHorizontalScrollIndicator={false}
-        // Tanpa ini, chip kategori kadang tampil pudar/kosong di Android
-        // sebelum disentuh - Android suka "membersihkan" (clip) view yang
-        // dianggap di luar layar terlalu awal untuk FlatList horizontal.
-        removeClippedSubviews={false}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.categoryListContent}
-        ListHeaderComponent={
+        contentContainerStyle={styles.categoryListContent}>
+        <CategoryChip
+          label="Semua"
+          isActive={selectedCategoryId === null}
+          onPress={() => setSelectedCategoryId(null)}
+        />
+        {categories.map(item => (
           <CategoryChip
-            label="Semua"
-            isActive={selectedCategoryId === null}
-            onPress={() => setSelectedCategoryId(null)}
-          />
-        }
-        renderItem={({ item }) => (
-          <CategoryChip
+            key={item.id}
             label={item.name}
             isActive={selectedCategoryId === item.id}
             onPress={() => setSelectedCategoryId(item.id)}
           />
-        )}
-      />
+        ))}
+      </ScrollView>
 
       {/* --- Daftar produk -------------------------------------------- */}
       {isLoadingProducts ? (
@@ -546,8 +569,11 @@ export default function KasirScreen({ user, onLogout }: Props) {
               <CartRow
                 key={line.product.id}
                 line={line}
+                allowPriceEdit={user.store.allow_price_edit}
                 onIncrease={() => changeQty(line.product.id, 1)}
                 onDecrease={() => changeQty(line.product.id, -1)}
+                onPriceChange={text => updateCartLinePrice(line.product.id, text)}
+                onNoteChange={text => updateCartLineNote(line.product.id, text)}
               />
             ))}
           </View>
@@ -698,35 +724,59 @@ function ProductCard({ product, onPress }: { product: Product; onPress: () => vo
 /** Satu baris item di dalam ringkasan keranjang. */
 function CartRow({
   line,
+  allowPriceEdit,
   onIncrease,
   onDecrease,
+  onPriceChange,
+  onNoteChange,
 }: {
   line: CartItem;
+  allowPriceEdit: boolean;
   onIncrease: () => void;
   onDecrease: () => void;
+  onPriceChange: (text: string) => void;
+  onNoteChange: (text: string) => void;
 }) {
   return (
     <View style={styles.cartRow}>
-      <View style={styles.cartRowNameColumn}>
-        <Text style={styles.cartRowName} numberOfLines={1}>
-          {line.product.name}
-        </Text>
-        {!!line.note && (
-          <Text style={styles.cartRowNote} numberOfLines={1}>
-            {line.note}
+      <View style={styles.cartRowTop}>
+        <View style={styles.cartRowNameColumn}>
+          <Text style={styles.cartRowName} numberOfLines={1}>
+            {line.product.name}
           </Text>
-        )}
+          {allowPriceEdit ? (
+            <View style={styles.priceEditRow}>
+              <Text style={styles.priceEditPrefix}>Rp</Text>
+              <TextInput
+                style={styles.priceEditInput}
+                value={String(line.price)}
+                onChangeText={onPriceChange}
+                keyboardType="number-pad"
+              />
+            </View>
+          ) : (
+            <Text style={styles.cartRowPrice}>{formatRupiah(line.price)}</Text>
+          )}
+        </View>
+        <View style={styles.qtyControls}>
+          <TouchableOpacity style={styles.qtyButton} onPress={onDecrease}>
+            <Text style={styles.qtyButtonText}>-</Text>
+          </TouchableOpacity>
+          <Text style={styles.qtyValue}>{line.qty}</Text>
+          <TouchableOpacity style={styles.qtyButton} onPress={onIncrease}>
+            <Text style={styles.qtyButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.cartRowSubtotal}>{formatRupiah(line.price * line.qty)}</Text>
       </View>
-      <View style={styles.qtyControls}>
-        <TouchableOpacity style={styles.qtyButton} onPress={onDecrease}>
-          <Text style={styles.qtyButtonText}>-</Text>
-        </TouchableOpacity>
-        <Text style={styles.qtyValue}>{line.qty}</Text>
-        <TouchableOpacity style={styles.qtyButton} onPress={onIncrease}>
-          <Text style={styles.qtyButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.cartRowSubtotal}>{formatRupiah(line.product.price * line.qty)}</Text>
+
+      <TextInput
+        style={styles.noteEditInput}
+        value={line.note}
+        onChangeText={onNoteChange}
+        placeholder="Tambah catatan..."
+        placeholderTextColor={colors.slate[400]}
+      />
     </View>
   );
 }
@@ -1071,11 +1121,13 @@ const styles = StyleSheet.create({
     maxHeight: 140,
   },
   cartRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[100],
+  },
+  cartRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cartRowNameColumn: {
     flex: 1,
@@ -1084,11 +1136,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.slate[900],
   },
-  cartRowNote: {
+  cartRowPrice: {
     fontSize: 11,
-    color: colors.slate[400],
-    fontStyle: 'italic',
+    color: colors.slate[500],
     marginTop: 1,
+  },
+  priceEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  priceEditPrefix: {
+    fontSize: 11,
+    color: colors.slate[500],
+    marginRight: 3,
+  },
+  priceEditInput: {
+    fontSize: 11,
+    color: colors.slate[900],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate[300],
+    paddingVertical: 0,
+    minWidth: 50,
+  },
+  noteEditInput: {
+    fontSize: 11,
+    color: colors.slate[600],
+    fontStyle: 'italic',
+    marginTop: 4,
+    padding: 0,
   },
   qtyControls: {
     flexDirection: 'row',

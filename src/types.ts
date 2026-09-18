@@ -13,6 +13,8 @@ export interface Store {
   name: string;
   has_access: boolean;
   self_order_url: string;
+  /** Kalau true, kasir boleh mengubah harga per baris keranjang secara manual. */
+  allow_price_edit: boolean;
 }
 
 export interface User {
@@ -49,6 +51,13 @@ export interface CartItem {
   product: Product;
   qty: number;
   note: string;
+  /**
+   * Harga yang BENAR-BENAR dipakai untuk baris ini - mulai dari harga
+   * produk aslinya, tapi bisa diubah manual kalau toko mengizinkan
+   * (`store.allow_price_edit`). Dipisah dari `product.price` supaya
+   * harga asli produk tidak pernah ikut berubah di data produknya.
+   */
+  price: number;
 }
 
 export type PaymentMethod = 'cash' | 'qris' | 'kartu';
