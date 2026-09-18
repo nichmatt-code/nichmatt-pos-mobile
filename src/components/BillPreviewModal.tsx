@@ -1,7 +1,8 @@
-import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { BillPreview } from '../types';
+import { printReceiptLines } from '../utils/print';
 
 interface Props {
   /** `null` berarti modal tertutup / belum ada pratinjau untuk ditampilkan. */
@@ -22,6 +23,23 @@ interface Props {
  */
 export default function BillPreviewModal({ bill, isLoading, onClose }: Props) {
   const visible = isLoading || bill !== null;
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  async function handlePrint() {
+    if (!bill) {
+      return;
+    }
+
+    setIsPrinting(true);
+
+    try {
+      await printReceiptLines(bill.receipt_lines);
+    } catch {
+      Alert.alert('Gagal mencetak', 'Coba lagi, atau pastikan printer sudah terhubung ke HP.');
+    } finally {
+      setIsPrinting(false);
+    }
+  }
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -45,9 +63,24 @@ export default function BillPreviewModal({ bill, isLoading, onClose }: Props) {
             </ScrollView>
           )}
 
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>Tutup</Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.closeButton]}
+              onPress={onClose}
+              disabled={isPrinting}>
+              <Text style={styles.closeButtonText}>Tutup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.printButton]}
+              onPress={handlePrint}
+              disabled={isLoading || isPrinting}>
+              {isPrinting ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.printButtonText}>Cetak</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -93,14 +126,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.slate[900],
   },
-  closeButton: {
+  actionRow: {
+    flexDirection: 'row',
     marginTop: 16,
-    backgroundColor: colors.brand[600],
+  },
+  actionButton: {
+    flex: 1,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
+  closeButton: {
+    backgroundColor: colors.slate[100],
+    marginRight: 8,
+  },
   closeButtonText: {
+    color: colors.slate[700],
+    fontWeight: '700',
+  },
+  printButton: {
+    backgroundColor: colors.brand[600],
+  },
+  printButtonText: {
     color: colors.white,
     fontWeight: '700',
   },

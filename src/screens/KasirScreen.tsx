@@ -34,6 +34,7 @@ import {
 } from '../types';
 import CheckoutModal from '../components/CheckoutModal';
 import AddToCartModal from '../components/AddToCartModal';
+import CartModal from '../components/CartModal';
 import SelfOrderQrModal from '../components/SelfOrderQrModal';
 import BillPreviewModal from '../components/BillPreviewModal';
 import Toast, { ToastPayload } from '../components/Toast';
@@ -56,6 +57,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
 
   // --- Keranjang & pembayaran -----------------------------------------
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartModalVisible, setIsCartModalVisible] = useState(false);
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [isSubmittingCheckout, setIsSubmittingCheckout] = useState(false);
   // Diisi setelah checkout sukses - selama ada isinya, CheckoutModal
@@ -361,6 +363,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
         coupon_code: appliedCoupon?.code,
       });
       setCheckoutTotal(preview.total);
+      setIsCartModalVisible(false);
       setIsCheckoutVisible(true);
     } catch (error) {
       Alert.alert(
@@ -560,81 +563,42 @@ export default function KasirScreen({ user, onLogout }: Props) {
         />
       )}
 
-      {/* --- Ringkasan keranjang di bagian bawah layar ------------------ */}
+      {/* --- Bar ringkas keranjang - tap untuk buka layar keranjang penuh */}
       {cartItemCount > 0 && (
-        <View style={styles.cartBar}>
-          <Text style={styles.cartHeading}>Keranjang</Text>
-          <View style={styles.cartList}>
-            {cart.map(line => (
-              <CartRow
-                key={line.product.id}
-                line={line}
-                allowPriceEdit={user.store.allow_price_edit}
-                onIncrease={() => changeQty(line.product.id, 1)}
-                onDecrease={() => changeQty(line.product.id, -1)}
-                onPriceChange={text => updateCartLinePrice(line.product.id, text)}
-                onNoteChange={text => updateCartLineNote(line.product.id, text)}
-              />
-            ))}
-          </View>
-
-          {/* --- Kupon ------------------------------------------------- */}
-          {appliedCoupon ? (
-            <View style={styles.couponAppliedRow}>
-              <Text style={styles.couponAppliedText}>
-                Kupon {appliedCoupon.code}: -{formatRupiah(appliedCoupon.discount_amount)}
-              </Text>
-              <TouchableOpacity onPress={handleRemoveCoupon}>
-                <Text style={styles.selfOrderRemoveText}>Hapus</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.inlineInputRow}>
-              <TextInput
-                style={styles.inlineInput}
-                value={couponCodeInput}
-                onChangeText={text => setCouponCodeInput(text.toUpperCase())}
-                placeholder="Kode kupon (opsional)"
-                placeholderTextColor={colors.slate[400]}
-                autoCapitalize="characters"
-                editable={!isCheckingCoupon}
-              />
-              <TouchableOpacity
-                style={styles.inlineButton}
-                onPress={handleApplyCoupon}
-                disabled={isCheckingCoupon}>
-                {isCheckingCoupon ? (
-                  <ActivityIndicator color={colors.white} size="small" />
-                ) : (
-                  <Text style={styles.inlineButtonText}>Terapkan</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-          {!!couponError && <Text style={styles.inlineErrorText}>{couponError}</Text>}
-
-          <TouchableOpacity style={styles.billButton} onPress={handleShowBillPreview}>
-            <Text style={styles.billButtonText}>Cetak Bill</Text>
-          </TouchableOpacity>
-
-          <View style={styles.cartFooter}>
-            <View>
-              <Text style={styles.cartItemCount}>{cartItemCount} item</Text>
-              <Text style={styles.cartTotal}>{formatRupiah(estimatedTotal)}</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.payButton, isPreparingCheckout && styles.buttonDisabled]}
-              onPress={handleOpenCheckout}
-              disabled={isPreparingCheckout}>
-              {isPreparingCheckout ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={styles.payButtonText}>Bayar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.cartSummaryBar}
+          onPress={() => setIsCartModalVisible(true)}>
+          <Text style={styles.cartSummaryCount}>{cartItemCount} item</Text>
+          <Text style={styles.cartSummaryText}>
+            Lihat Keranjang · {formatRupiah(estimatedTotal)} ›
+          </Text>
+        </TouchableOpacity>
       )}
+
+      <CartModal
+        visible={isCartModalVisible}
+        onClose={() => setIsCartModalVisible(false)}
+        cart={cart}
+        allowPriceEdit={user.store.allow_price_edit}
+        onIncrease={id => changeQty(id, 1)}
+        onDecrease={id => changeQty(id, -1)}
+        onPriceChange={updateCartLinePrice}
+        onNoteChange={updateCartLineNote}
+        claimedSelfOrder={claimedSelfOrder}
+        onRemoveSelfOrder={() => setClaimedSelfOrder(null)}
+        appliedCoupon={appliedCoupon}
+        couponCodeInput={couponCodeInput}
+        onCouponCodeInputChange={text => setCouponCodeInput(text.toUpperCase())}
+        isCheckingCoupon={isCheckingCoupon}
+        couponError={couponError}
+        onApplyCoupon={handleApplyCoupon}
+        onRemoveCoupon={handleRemoveCoupon}
+        onShowBillPreview={handleShowBillPreview}
+        cartItemCount={cartItemCount}
+        estimatedTotal={estimatedTotal}
+        isPreparingCheckout={isPreparingCheckout}
+        onOpenCheckout={handleOpenCheckout}
+      />
 
       <AddToCartModal
         // `key` dibuat dari id produk supaya React membuat ulang komponen
@@ -673,7 +637,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
         onClose={() => setBillPreview(null)}
       />
 
-      <Toast toast={toast} bottomOffset={cartItemCount > 0 ? 210 : 24} />
+      <Toast toast={toast} bottomOffset={cartItemCount > 0 ? 90 : 24} />
     </SafeAreaView>
   );
 }
@@ -718,66 +682,6 @@ function ProductCard({ product, onPress }: { product: Product; onPress: () => vo
             : `Stok: ${product.stock_qty}`}
       </Text>
     </TouchableOpacity>
-  );
-}
-
-/** Satu baris item di dalam ringkasan keranjang. */
-function CartRow({
-  line,
-  allowPriceEdit,
-  onIncrease,
-  onDecrease,
-  onPriceChange,
-  onNoteChange,
-}: {
-  line: CartItem;
-  allowPriceEdit: boolean;
-  onIncrease: () => void;
-  onDecrease: () => void;
-  onPriceChange: (text: string) => void;
-  onNoteChange: (text: string) => void;
-}) {
-  return (
-    <View style={styles.cartRow}>
-      <View style={styles.cartRowTop}>
-        <View style={styles.cartRowNameColumn}>
-          <Text style={styles.cartRowName} numberOfLines={1}>
-            {line.product.name}
-          </Text>
-          {allowPriceEdit ? (
-            <View style={styles.priceEditRow}>
-              <Text style={styles.priceEditPrefix}>Rp</Text>
-              <TextInput
-                style={styles.priceEditInput}
-                value={String(line.price)}
-                onChangeText={onPriceChange}
-                keyboardType="number-pad"
-              />
-            </View>
-          ) : (
-            <Text style={styles.cartRowPrice}>{formatRupiah(line.price)}</Text>
-          )}
-        </View>
-        <View style={styles.qtyControls}>
-          <TouchableOpacity style={styles.qtyButton} onPress={onDecrease}>
-            <Text style={styles.qtyButtonText}>-</Text>
-          </TouchableOpacity>
-          <Text style={styles.qtyValue}>{line.qty}</Text>
-          <TouchableOpacity style={styles.qtyButton} onPress={onIncrease}>
-            <Text style={styles.qtyButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.cartRowSubtotal}>{formatRupiah(line.price * line.qty)}</Text>
-      </View>
-
-      <TextInput
-        style={styles.noteEditInput}
-        value={line.note}
-        onChangeText={onNoteChange}
-        placeholder="Tambah catatan..."
-        placeholderTextColor={colors.slate[400]}
-      />
-    </View>
   );
 }
 
@@ -1099,161 +1003,30 @@ const styles = StyleSheet.create({
   productStockLow: {
     color: colors.rose[500],
   },
-  cartBar: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    shadowColor: colors.slate[900],
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cartHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.slate[900],
-    marginBottom: 8,
-  },
-  cartList: {
-    maxHeight: 140,
-  },
-  cartRow: {
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate[100],
-  },
-  cartRowTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cartRowNameColumn: {
-    flex: 1,
-  },
-  cartRowName: {
-    fontSize: 13,
-    color: colors.slate[900],
-  },
-  cartRowPrice: {
-    fontSize: 11,
-    color: colors.slate[500],
-    marginTop: 1,
-  },
-  priceEditRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  priceEditPrefix: {
-    fontSize: 11,
-    color: colors.slate[500],
-    marginRight: 3,
-  },
-  priceEditInput: {
-    fontSize: 11,
-    color: colors.slate[900],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate[300],
-    paddingVertical: 0,
-    minWidth: 50,
-  },
-  noteEditInput: {
-    fontSize: 11,
-    color: colors.slate[600],
-    fontStyle: 'italic',
-    marginTop: 4,
-    padding: 0,
-  },
-  qtyControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  qtyButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: colors.slate[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qtyButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.slate[700],
-  },
-  qtyValue: {
-    width: 28,
-    textAlign: 'center',
-    fontWeight: '600',
-    color: colors.slate[900],
-  },
-  cartRowSubtotal: {
-    width: 90,
-    textAlign: 'right',
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.slate[900],
-  },
-  couponAppliedRow: {
+  cartSummaryBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.emerald[50],
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginTop: 10,
-  },
-  couponAppliedText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.emerald[600],
-  },
-  billButton: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  billButtonText: {
-    color: colors.slate[700],
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  cartFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.slate[100],
-  },
-  cartItemCount: {
-    fontSize: 12,
-    color: colors.slate[500],
-  },
-  cartTotal: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.brand[600],
-  },
-  payButton: {
     backgroundColor: colors.brand[600],
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: colors.slate[900],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  payButtonText: {
+  cartSummaryCount: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  cartSummaryText: {
     color: colors.white,
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 14,
   },
 });

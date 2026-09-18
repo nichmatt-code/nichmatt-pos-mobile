@@ -128,4 +128,5 @@ export interface Transaction {
   status: string;
   created_at: string;
   items: TransactionItem[];
+  receipt_lines: string[];
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   StyleSheet,
   Text,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import { formatRupiah } from '../utils/currency';
 import { colors } from '../theme/colors';
+import { printReceiptLines } from '../utils/print';
 import { PaymentMethod, Transaction } from '../types';
 
 interface Props {
@@ -152,6 +154,20 @@ export default function CheckoutModal({
 
 /** Layar sukses setelah transaksi tersimpan - meniru panel hijau di kasir web. */
 function SuccessView({ transaction, onDone }: { transaction: Transaction; onDone: () => void }) {
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  async function handlePrintReceipt() {
+    setIsPrinting(true);
+
+    try {
+      await printReceiptLines(transaction.receipt_lines);
+    } catch {
+      Alert.alert('Gagal mencetak', 'Coba lagi, atau pastikan printer sudah terhubung ke HP.');
+    } finally {
+      setIsPrinting(false);
+    }
+  }
+
   return (
     <View style={styles.successContainer}>
       <View style={styles.successBadge}>
@@ -169,9 +185,21 @@ function SuccessView({ transaction, onDone }: { transaction: Transaction; onDone
         </Text>
       )}
 
-      <TouchableOpacity style={[styles.actionButton, styles.confirmButton]} onPress={onDone}>
-        <Text style={styles.confirmButtonText}>Transaksi Baru</Text>
-      </TouchableOpacity>
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.cancelButton]}
+          onPress={handlePrintReceipt}
+          disabled={isPrinting}>
+          {isPrinting ? (
+            <ActivityIndicator color={colors.slate[700]} />
+          ) : (
+            <Text style={styles.cancelButtonText}>Cetak Struk</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, styles.confirmButton]} onPress={onDone}>
+          <Text style={styles.confirmButtonText}>Transaksi Baru</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
