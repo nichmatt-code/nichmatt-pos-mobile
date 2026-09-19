@@ -45,6 +45,7 @@ import BillPreviewModal from '../components/BillPreviewModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
 import LossRecordModal from '../components/LossRecordModal';
 import StockOpnameModal from '../components/StockOpnameModal';
+import CustomerManagementModal from '../components/CustomerManagementModal';
 import MoreMenuModal from '../components/MoreMenuModal';
 import Toast, { ToastPayload } from '../components/Toast';
 
@@ -93,6 +94,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
   // --- Stock Opname --------------------------------------------------------
   const [isStockOpnameVisible, setIsStockOpnameVisible] = useState(false);
   const canAccessStockOpname = user.role === 'owner' || user.permissions.includes('stock-opname');
+
+  // --- Pelanggan (kelola) --------------------------------------------------
+  const [isCustomersVisible, setIsCustomersVisible] = useState(false);
+  const canAccessCustomers = user.role === 'owner' || user.permissions.includes('customers');
 
   // --- Menu navbar (☰) -----------------------------------------------------
   const [isMoreMenuVisible, setIsMoreMenuVisible] = useState(false);
@@ -810,6 +815,11 @@ export default function KasirScreen({ user, onLogout }: Props) {
         onClose={() => setIsStockOpnameVisible(false)}
       />
 
+      <CustomerManagementModal
+        visible={isCustomersVisible}
+        onClose={() => setIsCustomersVisible(false)}
+      />
+
       <MoreMenuModal
         visible={isMoreMenuVisible}
         onClose={() => setIsMoreMenuVisible(false)}
@@ -817,6 +827,8 @@ export default function KasirScreen({ user, onLogout }: Props) {
         onOpenHistory={() => setIsHistoryVisible(true)}
         onOpenStockOpname={() => setIsStockOpnameVisible(true)}
         canAccessStockOpname={canAccessStockOpname}
+        onOpenCustomers={() => setIsCustomersVisible(true)}
+        canAccessCustomers={canAccessCustomers}
         onLogout={handleLogout}
       />
 

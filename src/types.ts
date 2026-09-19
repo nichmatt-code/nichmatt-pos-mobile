@@ -77,6 +77,14 @@ export interface Customer {
   id: number;
   name: string;
   phone: string;
+  address: string | null;
+  /** Format `YYYY-MM-DD`, atau `null` kalau belum diisi. */
+  birthdate: string | null;
+  /** Umur dalam tahun (dihitung server dari `birthdate`), atau `null`. */
+  age: number | null;
+  notes: string | null;
+  /** Cuma terisi kalau dimuat lewat daftar/detail kelola pelanggan - hasil pencarian cepat di keranjang tidak memuat ini. */
+  transactions_count?: number;
 }
 
 /** Hasil klaim kode self order - siap digabung ke keranjang kasir. */

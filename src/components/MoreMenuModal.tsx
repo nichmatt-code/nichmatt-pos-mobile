@@ -14,6 +14,8 @@ interface Props {
   onOpenHistory: () => void;
   onOpenStockOpname: () => void;
   canAccessStockOpname: boolean;
+  onOpenCustomers: () => void;
+  canAccessCustomers: boolean;
   onLogout: () => void;
 }
 
@@ -37,6 +39,8 @@ export default function MoreMenuModal({
   onOpenHistory,
   onOpenStockOpname,
   canAccessStockOpname,
+  onOpenCustomers,
+  canAccessCustomers,
   onLogout,
 }: Props) {
   const { colors, isDark, toggleTheme } = useAppTheme();
@@ -122,6 +126,17 @@ export default function MoreMenuModal({
               </TouchableOpacity>
             )}
           </View>
+
+          {canAccessCustomers && (
+            <>
+              <Text style={styles.sectionLabel}>Administrasi</Text>
+              <View style={styles.group}>
+                <TouchableOpacity style={styles.item} onPress={() => go(onOpenCustomers)}>
+                  <Text style={styles.itemText}>Pelanggan</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </ScrollView>
 
         <View style={styles.footer}>
