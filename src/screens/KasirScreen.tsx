@@ -813,13 +813,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
       <MoreMenuModal
         visible={isMoreMenuVisible}
         onClose={() => setIsMoreMenuVisible(false)}
-        items={[
-          { label: 'Riwayat Transaksi', onPress: () => setIsHistoryVisible(true) },
-          ...(canAccessStockOpname
-            ? [{ label: 'Stock Opname', onPress: () => setIsStockOpnameVisible(true) }]
-            : []),
-          { label: 'Keluar', onPress: handleLogout, destructive: true },
-        ]}
+        onOpenHistory={() => setIsHistoryVisible(true)}
+        onOpenStockOpname={() => setIsStockOpnameVisible(true)}
+        canAccessStockOpname={canAccessStockOpname}
+        onLogout={handleLogout}
       />
 
       <Toast toast={toast} bottomOffset={cartItemCount > 0 ? 90 : 24} />
