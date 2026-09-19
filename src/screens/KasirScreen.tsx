@@ -813,6 +813,7 @@ export default function KasirScreen({ user, onLogout }: Props) {
       <MoreMenuModal
         visible={isMoreMenuVisible}
         onClose={() => setIsMoreMenuVisible(false)}
+        user={user}
         onOpenHistory={() => setIsHistoryVisible(true)}
         onOpenStockOpname={() => setIsStockOpnameVisible(true)}
         canAccessStockOpname={canAccessStockOpname}

@@ -5,10 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette } from '../theme/colors';
 import { useAppTheme } from '../theme/ThemeContext';
+import { User } from '../types';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
+  user: User;
   onOpenHistory: () => void;
   onOpenStockOpname: () => void;
   canAccessStockOpname: boolean;
@@ -31,6 +33,7 @@ interface Props {
 export default function MoreMenuModal({
   visible,
   onClose,
+  user,
   onOpenHistory,
   onOpenStockOpname,
   canAccessStockOpname,
@@ -38,6 +41,7 @@ export default function MoreMenuModal({
 }: Props) {
   const { colors, isDark, toggleTheme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const avatarInitial = user.name.trim().charAt(0).toUpperCase() || '?';
 
   function go(action: () => void) {
     onClose();
@@ -52,6 +56,10 @@ export default function MoreMenuModal({
       'Segera Hadir',
       'Kelola langganan toko lewat NichmattPOS di komputer untuk saat ini.',
     );
+  }
+
+  function handleComingSoon(title: string) {
+    Alert.alert('Segera Hadir', `${title} belum tersedia di aplikasi mobile - gunakan web di komputer untuk saat ini.`);
   }
 
   return (
@@ -117,7 +125,36 @@ export default function MoreMenuModal({
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.logoutRow} onPress={() => go(onLogout)}>
+          <View style={styles.profileRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
+            </View>
+            <View style={styles.profileTextColumn}>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {user.name}
+              </Text>
+              <Text style={styles.profileEmail} numberOfLines={1}>
+                {user.email}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.footerItem}
+            onPress={() => handleComingSoon('Profil')}>
+            <Text style={styles.footerItemText}>Profil</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.footerItem, styles.footerItemRow]}
+            onPress={() => handleComingSoon('Tambah akun lain')}>
+            <Text style={styles.footerItemText}>+ Tambah Akun Lain</Text>
+            <Ionicons name="logo-google" size={16} color={colors.slate[400]} />
+          </TouchableOpacity>
+
+          <View style={styles.footerDivider} />
+
+          <TouchableOpacity style={styles.footerItem} onPress={() => go(onLogout)}>
             <Text style={styles.logoutText}>Keluar</Text>
           </TouchableOpacity>
         </View>
@@ -210,10 +247,58 @@ function createStyles(colors: Palette) {
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
-    logoutRow: {
+    profileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.brand[600],
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    avatarText: {
+      color: colors.white,
+      fontWeight: '700',
+      fontSize: 15,
+    },
+    profileTextColumn: {
+      flex: 1,
+    },
+    profileName: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.slate[900],
+    },
+    profileEmail: {
+      fontSize: 12,
+      color: colors.slate[500],
+      marginTop: 1,
+    },
+    footerItem: {
       borderRadius: 10,
       paddingHorizontal: 14,
       paddingVertical: 12,
+    },
+    footerItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    footerItemText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.slate[700],
+    },
+    footerDivider: {
+      height: 1,
+      backgroundColor: colors.slate[200],
+      marginVertical: 4,
     },
     logoutText: {
       fontSize: 14,
