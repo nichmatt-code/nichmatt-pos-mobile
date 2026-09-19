@@ -4,14 +4,16 @@
     "slug": "nichmattpos-kasir",
     "version": "0.0.1",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {},
     "web": {},
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-asset",
+      "expo-font"
     ]
   }
 }

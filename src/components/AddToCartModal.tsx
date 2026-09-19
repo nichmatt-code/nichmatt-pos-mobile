@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { formatRupiah } from '../utils/currency';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { Product } from '../types';
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
  * stepper + catatan opsional + tombol "Tambahkan").
  */
 export default function AddToCartModal({ product, maxQty, onClose, onConfirm }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState('');
 
@@ -31,7 +34,13 @@ export default function AddToCartModal({ product, maxQty, onClose, onConfirm }: 
   }
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           {product.image_url ? (
@@ -99,7 +108,8 @@ export default function AddToCartModal({ product, maxQty, onClose, onConfirm }: 
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -107,7 +117,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 20,
     overflow: 'hidden',
   },
@@ -217,4 +227,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
-});
+  });
+}

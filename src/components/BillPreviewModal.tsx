@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { BillPreview } from '../types';
 import { printReceiptLines } from '../utils/print';
 
@@ -22,6 +23,8 @@ interface Props {
  * cuma ditampilkan di layar (bisa dibacakan/ditunjukkan ke pelanggan).
  */
 export default function BillPreviewModal({ bill, isLoading, onClose }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const visible = isLoading || bill !== null;
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -42,7 +45,13 @@ export default function BillPreviewModal({ bill, isLoading, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <Text style={styles.title}>Bill Sementara</Text>
@@ -87,14 +96,15 @@ export default function BillPreviewModal({ bill, isLoading, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -151,4 +161,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
-});
+  });
+}

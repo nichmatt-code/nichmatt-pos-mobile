@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import {
   createStockOpname,
   deleteStockOpname,
@@ -35,6 +36,8 @@ const TYPE_LABELS: Record<StockOpnameType, string> = {
  * produk jadi atau bahan baku/inventory) - meniru fitur yang sama di web.
  */
 export default function StockOpnameModal({ visible, onClose }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [stockOpnames, setStockOpnames] = useState<StockOpname[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -101,7 +104,12 @@ export default function StockOpnameModal({ visible, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={styles.title}>Stock Opname</Text>
@@ -188,7 +196,8 @@ export default function StockOpnameModal({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate[50],
@@ -199,7 +208,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[200],
   },
@@ -257,7 +266,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.slate[200],
@@ -304,4 +313,5 @@ const styles = StyleSheet.create({
     color: colors.rose[600],
     marginTop: 6,
   },
-});
+  });
+}

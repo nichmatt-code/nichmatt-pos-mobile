@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { saveStockOpnameCounts, finishStockOpname } from '../api/stockOpname';
 import { ApiError } from '../api/client';
 import { StockOpname } from '../types';
@@ -35,6 +36,9 @@ const TYPE_LABELS: Record<string, string> = {
  * asli benar-benar disesuaikan - lihat StockOpnameController::finish()).
  */
 export default function StockOpnameCountingModal({ stockOpname, onClose, onUpdated }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // Disimpan sebagai teks (bukan angka) supaya kolom kosong tetap bisa
   // diketik ulang tanpa "0" yang mengganggu; dikonversi balik saat kirim.
   const [countTexts, setCountTexts] = useState<Record<number, string>>({});
@@ -123,7 +127,13 @@ export default function StockOpnameCountingModal({ stockOpname, onClose, onUpdat
   }
 
   return (
-    <Modal visible transparent={false} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent={false}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <View>
@@ -197,7 +207,8 @@ export default function StockOpnameCountingModal({ stockOpname, onClose, onUpdat
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate[50],
@@ -208,7 +219,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[200],
   },
@@ -253,7 +264,7 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.slate[200],
@@ -300,7 +311,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.slate[200],
     paddingHorizontal: 16,
@@ -332,4 +343,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
-});
+  });
+}

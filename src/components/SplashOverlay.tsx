@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 
 /**
  * Layar logo singkat yang tampil begitu KODE aplikasi ini mulai jalan.
@@ -13,6 +14,9 @@ import { colors } from '../theme/colors';
  * jadi logo NichmattPOS tetap terlihat secepat mungkin dari sisi kita.
  */
 export default function SplashOverlay() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
@@ -20,15 +24,17 @@ export default function SplashOverlay() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-  },
-  logo: {
-    width: 200,
-    height: 110,
-  },
-});
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    logo: {
+      width: 200,
+      height: 110,
+    },
+  });
+}

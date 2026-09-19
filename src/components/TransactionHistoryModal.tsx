@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { formatRupiah } from '../utils/currency';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { getTransactionHistory } from '../api/transactionHistory';
@@ -61,6 +62,8 @@ function dateRangeFor(period: Period): { from: string; to: string } {
  * transaksi atau nama pelanggan. Tap satu baris untuk lihat detailnya.
  */
 export default function TransactionHistoryModal({ visible, onClose }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 400);
   const [period, setPeriod] = useState<Period>('month');
@@ -153,7 +156,12 @@ export default function TransactionHistoryModal({ visible, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={styles.title}>Riwayat Transaksi</Text>
@@ -242,6 +250,9 @@ function TransactionRow({
   transaction: TransactionSummary;
   onPress: () => void;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <TouchableOpacity style={styles.row} onPress={onPress}>
       <View style={styles.rowLeft}>
@@ -261,7 +272,8 @@ function TransactionRow({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate[50],
@@ -272,7 +284,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[200],
   },
@@ -290,7 +302,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   searchInput: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     borderRadius: 10,
@@ -311,7 +323,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
     marginRight: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   periodChipActive: {
     backgroundColor: colors.slate[900],
@@ -322,8 +334,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
+  // Sengaja `slate[50]` (bukan `white` literal) supaya ikut membalik jadi
+  // teks gelap kalau tema gelap membuat chip terpilih ini jadi terang -
+  // sama seperti alasan di Toast.tsx.
   periodChipTextActive: {
-    color: colors.white,
+    color: colors.slate[50],
   },
   centerBox: {
     flex: 1,
@@ -348,7 +363,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.slate[200],
@@ -383,4 +398,5 @@ const styles = StyleSheet.create({
     color: colors.slate[400],
     marginTop: 2,
   },
-});
+  });
+}

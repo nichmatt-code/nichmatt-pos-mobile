@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { formatRupiah } from '../utils/currency';
 import { printReceiptLines } from '../utils/print';
 import { Transaction } from '../types';
@@ -29,6 +30,8 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 /** Detail satu transaksi dari riwayat - item, rincian total, dan cetak ulang struk. */
 export default function TransactionDetailModal({ transaction, isLoading, onClose }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const visible = isLoading || transaction !== null;
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -49,7 +52,13 @@ export default function TransactionDetailModal({ transaction, isLoading, onClose
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           {isLoading || !transaction ? (
@@ -136,6 +145,9 @@ function TotalRow({
   value: number;
   emphasized?: boolean;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.totalRow}>
       <Text style={[styles.totalLabel, emphasized && styles.totalLabelEmphasized]}>{label}</Text>
@@ -146,14 +158,15 @@ function TotalRow({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -263,4 +276,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
-});
+  });
+}

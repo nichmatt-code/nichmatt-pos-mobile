@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { formatRupiah } from '../utils/currency';
 import { CartItem, Customer, CouponCheckResult, SelfOrderClaim } from '../types';
 
@@ -88,8 +89,16 @@ export default function CartModal({
   isPreparingCheckout,
   onOpenCheckout,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={styles.title}>Keranjang ({cartItemCount} item)</Text>
@@ -255,6 +264,9 @@ function CartRow({
   onPriceChange: (text: string) => void;
   onNoteChange: (text: string) => void;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.cartRow}>
       <View style={styles.cartRowTop}>
@@ -299,10 +311,11 @@ function CartRow({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -389,7 +402,7 @@ const styles = StyleSheet.create({
   },
   customerMatchesBox: {
     marginTop: 4,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     borderRadius: 10,
@@ -598,4 +611,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
-});
+  });
+}

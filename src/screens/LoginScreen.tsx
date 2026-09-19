@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,7 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { login, loginWithGoogle } from '../api/auth';
 import { ApiError } from '../api/client';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { User } from '../types';
 
 interface Props {
@@ -25,6 +26,9 @@ interface Props {
 }
 
 export default function LoginScreen({ onLoginSuccess }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // useState menyimpan "state": data yang bisa berubah dan, kalau berubah,
   // otomatis membuat React menggambar ulang (re-render) tampilan ini.
   const [email, setEmail] = useState('');
@@ -171,7 +175,8 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate[50],
@@ -212,10 +217,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.8)',
+    borderColor: colors.slate[200],
     paddingHorizontal: 24,
     paddingVertical: 32,
     // "shadow-soft" di web (0 12px 32px -12px rgb(15 23 42 / 0.18)),
@@ -257,7 +262,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: colors.brand[500],
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   button: {
     backgroundColor: colors.brand[600],
@@ -294,7 +299,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   googleButton: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     borderRadius: 10,
@@ -322,4 +327,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.slate[400],
   },
-});
+  });
+}

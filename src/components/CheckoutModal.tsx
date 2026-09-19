@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { formatRupiah } from '../utils/currency';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { printReceiptLines } from '../utils/print';
 import { PaymentMethod, Transaction } from '../types';
 
@@ -47,6 +48,8 @@ export default function CheckoutModal({
   onClose,
   onConfirm,
 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paidAmountText, setPaidAmountText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +78,13 @@ export default function CheckoutModal({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={handleClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       {/* Latar belakang gelap transparan di belakang kotak modal. */}
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
@@ -154,6 +163,8 @@ export default function CheckoutModal({
 
 /** Layar sukses setelah transaksi tersimpan - meniru panel hijau di kasir web. */
 function SuccessView({ transaction, onDone }: { transaction: Transaction; onDone: () => void }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isPrinting, setIsPrinting] = useState(false);
 
   async function handlePrintReceipt() {
@@ -204,14 +215,15 @@ function SuccessView({ transaction, onDone }: { transaction: Transaction; onDone
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -249,7 +261,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   methodChipActive: {
     backgroundColor: colors.brand[600],
@@ -345,4 +357,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-});
+  });
+}

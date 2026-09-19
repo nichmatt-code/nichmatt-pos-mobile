@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 
 export interface ToastPayload {
   /** Dibuat unik tiap kali toast dipicu (lihat komentar di bawah). */
@@ -25,6 +26,9 @@ interface Props {
  * sama tidak akan mengulang animasinya dari awal.
  */
 export default function Toast({ toast, bottomOffset = 24 }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // Dibuat lewat useState (bukan useRef) supaya nilainya cuma dibuat SEKALI
   // lewat lazy initializer, tanpa perlu membaca `.current` saat render -
   // Animated.Value sendiri tetap object yang sama & boleh diubah langsung
@@ -69,32 +73,37 @@ export default function Toast({ toast, bottomOffset = 24 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.slate[900],
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    shadowColor: colors.slate[900],
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  check: {
-    color: colors.emerald[500],
-    fontWeight: '700',
-    marginRight: 8,
-  },
-  message: {
-    color: colors.white,
-    fontSize: 13,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-});
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.slate[900],
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      shadowColor: colors.slate[900],
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    check: {
+      color: colors.emerald[500],
+      fontWeight: '700',
+      marginRight: 8,
+    },
+    message: {
+      // Sengaja pakai `slate[50]` (bukan `white` yang literal) supaya teks
+      // ini ikut membalik jadi gelap kalau tema gelap membuat latar toast
+      // ini jadi terang - meniru "text-white dark:text-slate-900" di web.
+      color: colors.slate[50],
+      fontSize: 13,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
+  });
+}

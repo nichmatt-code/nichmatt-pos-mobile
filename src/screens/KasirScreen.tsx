@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { getCategories, getProducts } from '../api/catalog';
 import { checkout } from '../api/transactions';
 import { claimSelfOrder } from '../api/selfOrders';
@@ -22,7 +23,8 @@ import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { formatRupiah } from '../utils/currency';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import {
   BillPreview,
   CartItem,
@@ -54,6 +56,9 @@ interface Props {
 }
 
 export default function KasirScreen({ user, onLogout }: Props) {
+  const { colors, isDark, toggleTheme } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // --- Data katalog (kategori & produk) dari server ------------------
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -545,11 +550,21 @@ export default function KasirScreen({ user, onLogout }: Props) {
           resizeMode="contain"
         />
         <View style={styles.navbarActions}>
-          <TouchableOpacity style={styles.menuButton} onPress={() => setIsMoreMenuVisible(true)}>
-            <Text style={styles.menuButtonText}>☰ Menu</Text>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={toggleTheme}
+            accessibilityLabel="Ganti tema gelap/terang">
+            <Ionicons
+              name={isDark ? 'sunny-outline' : 'moon-outline'}
+              size={20}
+              color={colors.slate[500]}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Keluar</Text>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setIsMoreMenuVisible(true)}
+            accessibilityLabel="Buka menu">
+            <Ionicons name="menu-outline" size={22} color={colors.slate[500]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -557,12 +572,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
       {/* --- Header halaman ------------------------------------------ */}
       <View style={styles.header}>
         <Text style={styles.title}>Kasir</Text>
-        <Text style={styles.subtitle}>
-          {user.store.name} · {user.name}
-        </Text>
+        <Text style={styles.subtitle}>Buat transaksi baru untuk pelanggan.</Text>
       </View>
 
-      {/* --- Pencarian + QR self order -------------------------------- */}
+      {/* --- Pencarian + QR self order + Catat Kerugian ---------------- */}
       <View style={styles.searchRow}>
         <View style={styles.searchWrapper}>
           <Text style={styles.searchIcon}>🔍</Text>
@@ -579,6 +592,12 @@ export default function KasirScreen({ user, onLogout }: Props) {
           onPress={() => setIsQrModalVisible(true)}
           accessibilityLabel="Tampilkan QR self order">
           <Text style={styles.qrButtonIcon}>▦</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.qrButton}
+          onPress={() => setIsLossRecordVisible(true)}
+          accessibilityLabel="Catat Kerugian">
+          <Ionicons name="alert-circle-outline" size={20} color={colors.slate[500]} />
         </TouchableOpacity>
       </View>
 
@@ -796,10 +815,10 @@ export default function KasirScreen({ user, onLogout }: Props) {
         onClose={() => setIsMoreMenuVisible(false)}
         items={[
           { label: 'Riwayat Transaksi', onPress: () => setIsHistoryVisible(true) },
-          { label: 'Catat Kerugian', onPress: () => setIsLossRecordVisible(true) },
           ...(canAccessStockOpname
             ? [{ label: 'Stock Opname', onPress: () => setIsStockOpnameVisible(true) }]
             : []),
+          { label: 'Keluar', onPress: handleLogout, destructive: true },
         ]}
       />
 
@@ -817,6 +836,8 @@ export default function KasirScreen({ user, onLogout }: Props) {
  * supaya produk tanpa foto tidak terlihat kosong/rusak.
  */
 function ProductCard({ product, onPress }: { product: Product; onPress: () => void }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isOutOfStock = !product.is_unlimited_stock && product.stock_qty <= 0;
   const disabled = !product.is_available || isOutOfStock;
 
@@ -866,6 +887,9 @@ function CategoryChip({
   isActive: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <TouchableOpacity
       style={[styles.categoryChip, isActive && styles.categoryChipActive]}
@@ -949,7 +973,8 @@ function maxQtyFor(product: Product, cart: CartItem[]): number {
   return Math.max(1, product.stock_qty - alreadyInCart);
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate[50],
@@ -960,7 +985,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[200],
   },
@@ -988,28 +1013,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  menuButton: {
-    backgroundColor: colors.slate[100],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-  },
-  menuButtonText: {
-    color: colors.slate[700],
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  logoutButton: {
-    backgroundColor: colors.rose[50],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  logoutText: {
-    color: colors.rose[600],
-    fontWeight: '600',
-    fontSize: 13,
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
   },
   searchRow: {
     flexDirection: 'row',
@@ -1025,7 +1035,7 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 10,
     marginLeft: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     alignItems: 'center',
@@ -1099,7 +1109,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   searchInput: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     borderRadius: 10,
@@ -1113,7 +1123,7 @@ const styles = StyleSheet.create({
     height: 56,
     marginTop: 12,
     marginHorizontal: 16,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.slate[200],
@@ -1130,7 +1140,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   categoryChipActive: {
     backgroundColor: colors.slate[900],
@@ -1141,8 +1151,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
+  // `slate[50]` (bukan `white` literal) supaya ikut membalik jadi teks
+  // gelap kalau tema gelap membuat chip terpilih ini jadi terang.
   categoryChipTextActive: {
-    color: colors.white,
+    color: colors.slate[50],
   },
   centerBox: {
     flex: 1,
@@ -1187,12 +1199,12 @@ const styles = StyleSheet.create({
   },
   productCard: {
     width: '48%',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.7)',
+    borderColor: colors.slate[200],
     // Meniru `shadow-card` di web: bayangan tipis di bawah kartu produk.
     shadowColor: colors.slate[900],
     shadowOffset: { width: 0, height: 1 },
@@ -1269,4 +1281,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-});
+  });
+}

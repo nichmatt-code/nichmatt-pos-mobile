@@ -8,11 +8,12 @@
  * tambahan dulu - untuk 2 layar seperti ini, if/else biasa sudah cukup.
  */
 import React, { useEffect, useState } from 'react';
-import { StatusBar, useColorScheme } from 'react-native';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import LoginScreen from './src/screens/LoginScreen';
 import KasirScreen from './src/screens/KasirScreen';
 import SplashOverlay from './src/components/SplashOverlay';
+import { ThemeProvider, useAppTheme } from './src/theme/ThemeContext';
 import { User } from './src/types';
 
 // Berapa lama logo splash ditampilkan sebelum pindah ke layar Login -
@@ -20,8 +21,8 @@ import { User } from './src/types';
 // kelihatan jelas (bukan cuma kedip sekilas).
 const SPLASH_DURATION_MS = 900;
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+function AppContent() {
+  const { isDark } = useAppTheme();
 
   // Selama `user` masih `null`, artinya belum ada yang login.
   const [user, setUser] = useState<User | null>(null);
@@ -33,8 +34,8 @@ function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {isSplashVisible ? (
         <SplashOverlay />
@@ -43,6 +44,16 @@ function App() {
       ) : (
         <LoginScreen onLoginSuccess={setUser} />
       )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

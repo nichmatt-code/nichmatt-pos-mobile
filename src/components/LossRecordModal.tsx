@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 import { formatRupiah } from '../utils/currency';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { getProducts } from '../api/catalog';
@@ -35,6 +36,8 @@ interface LossLine {
  * sama di kasir versi web.
  */
 export default function LossRecordModal({ visible, onClose }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 400);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -145,7 +148,12 @@ export default function LossRecordModal({ visible, onClose }: Props) {
   const totalCost = items.reduce((sum, line) => sum + line.product.price * line.qty, 0);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={styles.title}>Catat Kerugian</Text>
@@ -243,7 +251,8 @@ export default function LossRecordModal({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate[50],
@@ -254,7 +263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[200],
   },
@@ -272,7 +281,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   searchInput: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     borderRadius: 10,
@@ -288,7 +297,7 @@ const styles = StyleSheet.create({
   },
   searchResultsBox: {
     marginTop: 4,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.slate[200],
     borderRadius: 10,
@@ -326,7 +335,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.slate[200],
@@ -371,7 +380,7 @@ const styles = StyleSheet.create({
     color: colors.slate[900],
   },
   footer: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.slate[200],
     paddingHorizontal: 16,
@@ -422,4 +431,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
-});
+  });
+}

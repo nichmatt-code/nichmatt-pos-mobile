@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 
 interface Props {
   visible: boolean;
@@ -16,8 +17,17 @@ interface Props {
  * yang dibuka lewat tombol QR di kasir versi web).
  */
 export default function SelfOrderQrModal({ visible, url, onClose }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.title}>QR Self Order</Text>
@@ -36,7 +46,8 @@ export default function SelfOrderQrModal({ visible, url, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -45,7 +56,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -65,6 +76,8 @@ const styles = StyleSheet.create({
   },
   qrBox: {
     padding: 16,
+    // Sengaja literal putih (bukan `colors.surface`) di kedua tema - QR
+    // code perlu kontras hitam-di-atas-putih supaya tetap gampang di-scan.
     backgroundColor: colors.white,
     borderRadius: 12,
     borderWidth: 1,
@@ -81,4 +94,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
-});
+  });
+}

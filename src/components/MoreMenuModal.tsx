@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { useAppTheme } from '../theme/ThemeContext';
 
 interface MenuItem {
   label: string;
@@ -16,6 +17,9 @@ interface Props {
 
 /** Popup menu kecil dari navbar - daftar aksi yang tidak muat semua jadi tombol sendiri-sendiri. */
 export default function MoreMenuModal({ visible, onClose, items }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   function handlePress(item: MenuItem) {
     onClose();
     // Jeda sedikit supaya modal ini sempat tertutup dulu sebelum modal
@@ -25,7 +29,13 @@ export default function MoreMenuModal({ visible, onClose, items }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
         <View style={styles.sheet}>
           {items.map((item, index) => (
@@ -44,7 +54,8 @@ export default function MoreMenuModal({ visible, onClose, items }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: Palette) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.4)',
@@ -53,7 +64,7 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     minWidth: 200,
     overflow: 'hidden',
@@ -80,4 +91,5 @@ const styles = StyleSheet.create({
   itemTextDestructive: {
     color: colors.rose[600],
   },
-});
+  });
+}
